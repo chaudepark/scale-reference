@@ -118,6 +118,11 @@
   .dot.hminor { background: var(--hminor); } .dot.mminor { background: var(--mminor); }
   .keys { display: flex; flex-wrap: wrap; gap: .4rem; }
   .key { font-size: .85rem; font-weight: 600; padding: .22rem .55rem; border-radius: 7px; background: #20242e; border: 1px solid #2c3240; font-variant-numeric: tabular-nums; }
+  .card.zone-sweet { border-top: 3px solid var(--sweet); }
+  .card.zone-ok { border-top: 3px solid var(--ok); }
+  .zone-tag { font-size: .64rem; font-weight: 800; padding: .12rem .45rem; border-radius: 999px; letter-spacing: .04em; }
+  .zone-tag.sweet { background: rgba(67,196,106,.18); color: var(--sweet); }
+  .zone-tag.ok { background: rgba(224,162,58,.18); color: var(--ok); }
 
   footer { margin-top: 3rem; color: var(--muted); font-size: .78rem; border-top: 1px solid var(--card-border); padding-top: 1.2rem; }
   footer a { color: var(--accent); }
@@ -140,7 +145,7 @@
 </section>
 
 <h2>キー別 — サブの根音がスイートスポットに入る調</h2>
-<p class="sub" style="margin-bottom:1.2rem">各サブノートを根音(=サブで鳴らす音)として使ったとき、自然に収まる調の早見。</p>
+<p class="sub" style="margin-bottom:1.2rem">各サブノート（sweet spot + solid の8音）を根音として使ったとき、それを含む調の早見。各スケールの定義から算出した全7調。エンハーモニックは適宜読み替え（F#≡G♭ / D#≡E♭ / G#≡A♭ など）。</p>
 <div class="grid" id="grid"></div>
 
 <h2>なぜこの音域なのか（根拠）</h2>
@@ -221,26 +226,57 @@
     keyboard.appendChild(el);
   });
 
-  // ---- scale -> key data ----
-  const DATA = [
-    { note:"E",  scales:{ major:["C","G","D","A","E","F","B"], minor:["A","E","D","B","F#","C#","G#"], hminor:["A","D","E"], mminor:["A","D"] }},
-    { note:"F",  scales:{ major:["C","F","E♭","A♭"], minor:["A","D","C","F","G"], hminor:["D","A","C"], mminor:["C"] }},
-    { note:"F#", scales:{ major:["G","D","A","E","B"], minor:["E","B","F#","C#","G#"], hminor:["E"], mminor:["A","D"] }},
-    { note:"G",  scales:{ major:["C","F","G","D","E♭","A♭"], minor:["A","D","E","B","C","F","G"], hminor:["D","E","C"], mminor:["D"] }},
-    { note:"G#", scales:{ major:["A","E","B","E♭","A♭"], minor:["F#","C#","G#","C","F"], hminor:["A","C"], mminor:["A"] }},
-  ];
-  const LABELS = { major:"major", minor:"minor", hminor:"harmonic minor", mminor:"melodic minor" };
+  // ---- scale -> key (computed from scale formulas; A4=440 enharmonic naming) ----
+  // pitch classes: C=0 ... B=11
+  const MAJOR_NAMES = ["C","D♭","D","E♭","E","F","F#","G","A♭","A","B♭","B"];
+  const MINOR_NAMES = ["C","C#","D","E♭","E","F","F#","G","G#","A","B♭","B"];
+  // circle-of-fifths order so simple keys come first
+  const FIFTHS = [0,7,2,9,4,11,6,1,8,3,10,5];
+  const RANK = {}; FIFTHS.forEach((pc, i) => { RANK[pc] = i; });
 
+  const SCALES = [
+    { key:"major",  label:"major",          pat:[0,2,4,5,7,9,11], names:MAJOR_NAMES },
+    { key:"minor",  label:"minor",          pat:[0,2,3,5,7,8,10], names:MINOR_NAMES },
+    { key:"hminor", label:"harmonic minor", pat:[0,2,3,5,7,8,11], names:MINOR_NAMES },
+    { key:"mminor", label:"melodic minor",  pat:[0,2,3,5,7,9,11], names:MINOR_NAMES },
+  ];
+
+  // sub notes shown left-to-right like the keyboard above (sweet + solid)
+  const SUB = [
+    { n:"D",  pc:2, zone:"ok"    },
+    { n:"D#", pc:3, zone:"ok"    },
+    { n:"E",  pc:4, zone:"sweet" },
+    { n:"F",  pc:5, zone:"sweet" },
+    { n:"F#", pc:6, zone:"sweet" },
+    { n:"G",  pc:7, zone:"sweet" },
+    { n:"G#", pc:8, zone:"ok"    },
+    { n:"A",  pc:9, zone:"ok"    },
+  ];
+
+  // tonics whose scale contains pitch class `pc`
+  function keysContaining(pc, scale) {
+    return scale.pat
+      .map(iv => ((pc - iv) % 12 + 12) % 12)
+      .sort((a, b) => RANK[a] - RANK[b])
+      .map(t => scale.names[t]);
+  }
+
+  const ZONE_LABEL = { sweet: "sweet spot", ok: "solid" };
   const grid = document.getElementById("grid");
-  for (const { note, scales } of DATA) {
+  for (const sub of SUB) {
     const card = document.createElement("section");
-    card.className = "card";
-    card.innerHTML = `<div class="note"><span class="label">${note}</span><span class="tag">sub note</span></div>`;
-    for (const k of ["major","minor","hminor","mminor"]) {
-      const keys = scales[k].map(x => `<span class="key">${x}</span>`).join("");
+    card.className = "card zone-" + sub.zone;
+    card.innerHTML =
+      `<div class="note"><span class="label">${sub.n}</span>` +
+      `<span class="tag zone-tag ${sub.zone}">${ZONE_LABEL[sub.zone]}</span></div>`;
+    for (const scale of SCALES) {
+      const keys = keysContaining(sub.pc, scale)
+        .map(x => `<span class="key">${x}</span>`).join("");
       const row = document.createElement("div");
-      row.className = "row " + k;
-      row.innerHTML = `<div class="type"><span class="dot ${k}"></span>${LABELS[k]}</div><div class="keys">${keys}</div>`;
+      row.className = "row " + scale.key;
+      row.innerHTML =
+        `<div class="type"><span class="dot ${scale.key}"></span>${scale.label}</div>` +
+        `<div class="keys">${keys}</div>`;
       card.appendChild(row);
     }
     grid.appendChild(card);
