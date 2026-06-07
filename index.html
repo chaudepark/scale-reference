@@ -92,6 +92,16 @@
   .kp-table tr.parallel td { opacity: .8; }
   .kp-table .arrow { color: var(--muted); font-weight: 500; font-size: .85em; }
   .kp-note { font-size: .85rem; color: var(--muted); }
+  .chord.playable { cursor: pointer; user-select: none; transition: transform .06s, border-color .12s; }
+  .chord.playable:hover { border-color: var(--accent); }
+  .chord.playable:active, .chord.playing { transform: translateY(1px); border-color: var(--accent); }
+  .kp-table tbody tr[data-root] { cursor: pointer; }
+  .kp-table tbody tr[data-root]:hover td { background: #20242e; }
+  .kp-hint { font-size: .74rem; color: var(--muted); margin-top: .5rem; }
+  .kp-secdom { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+  .kp-secdom .sd { display: inline-flex; align-items: center; gap: .35rem; }
+  .kp-secdom .sd small { color: var(--muted); font-size: .78em; }
+  .kp-homedom { font-size: .86rem; color: var(--muted); margin-top: .7rem; display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
 
   /* ---- collapsible full reference ---- */
   .bykey { margin: 2.6rem 0 0; }
@@ -222,6 +232,10 @@
       panelModeNote: "Chord & modulation view is shown for Major / Minor.",
       thKey: "Key", thDeg: "Deg", thSub: "Sub", thBridge: "Bridge (pivot)",
       parallelTag: "parallel", panelBorrow: "borrow / direct",
+      hintPlay: "♪ Tap any chord to hear it",
+      hintJump: "Tap a row to jump to that key",
+      panelSecDom: "Strong approach — secondary dominant (V7) of each target",
+      panelHomeDom: "Strong dominant of this key (harmonic-minor V)",
       byKeySummary: "Full reference — every sub note → all its keys",
       keysH2: "By key — keys that put your sub root in the sweet spot",
       keysIntro: "For each sub note (the 8 sweet-spot + solid notes), the keys that contain it as a root — computed from each scale formula (7 keys each). Major / Minor sit on top for early writing; the modes below are for when you modulate. Enharmonics are interchangeable (F#≡G♭ / D#≡E♭ / G#≡A♭).",
@@ -250,6 +264,10 @@
       panelModeNote: "コード・転調ビューは Major / Minor で表示されます。",
       thKey: "キー", thDeg: "度数", thSub: "サブ", thBridge: "ブリッジ（ピボット）",
       parallelTag: "同主調", panelBorrow: "借用・直接",
+      hintPlay: "♪ コードをタップで試聴",
+      hintJump: "行をタップでそのキーへ移動",
+      panelSecDom: "強い導入 — 各転調先のセカンダリードミナント(V7)",
+      panelHomeDom: "このキーの強い属和音（harmonic minor V）",
       byKeySummary: "フル早見表 — 全サブ音 → 入る調すべて",
       keysH2: "キー別 — サブの根音がスイートスポットに入る調",
       keysIntro: "各サブノート（sweet spot + solid の8音）を根音として使ったとき、それを含む調の早見。各スケールの定義から算出した全7調。制作初期は上の Major / Minor だけ見ればOK、下のモードは転調時の選択肢。エンハーモニックは適宜読み替え（F#≡G♭ / D#≡E♭ / G#≡A♭）。",
@@ -512,6 +530,45 @@
     ? `${chordLabel(b)} <span class="arrow">(${roman(b.homeDeg, b.qual)}→${roman(b.targetDeg, b.qual)})</span>`
     : s.panelBorrow;
 
+  // chord intervals (semitones from root) for playback & chips
+  const TRIAD_IV = { maj: [0,4,7], min: [0,3,7], dim: [0,3,6], aug: [0,4,8] };
+  function chordChip(rootPc, iv, label, degLabel, zoneClass) {
+    const deg = degLabel ? `<span class="deg">${degLabel}</span>` : "";
+    const lab = zoneClass ? `<span class="${zoneClass}">${label}</span>` : label;
+    return `<span class="chord playable" data-root="${rootPc}" data-iv="${iv.join(",")}">${deg}${lab}</span>`;
+  }
+
+  // ---- Web Audio: play a chord (mid register triad + soft sub root) ----
+  let actx = null;
+  function audio() {
+    try {
+      if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; actx = new C(); }
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+  const midiFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+  function playChord(rootPc, iv) {
+    const ac = audio(); if (!ac) return;
+    try {
+      const t0 = ac.currentTime, dur = 1.4, peak = 0.16;
+      const master = ac.createGain();
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
+      master.connect(lp); lp.connect(ac.destination);
+      master.gain.setValueAtTime(0.0001, t0);
+      master.gain.exponentialRampToValueAtTime(peak, t0 + 0.02);
+      master.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      const base = 48 + rootPc;                 // root in C3–B3
+      const midis = iv.map(x => base + x);
+      midis.push(base - 12);                     // soft sub-octave root
+      midis.forEach(m => {
+        const o = ac.createOscillator(); o.type = "triangle"; o.frequency.value = midiFreq(m);
+        const g = ac.createGain(); g.gain.value = (m === base - 12) ? 0.45 : 1;
+        o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
+      });
+    } catch (e) {}
+  }
+
   // ---- panel render ----
   function renderPanel(homePc, homeScale, lang) {
     const s = STRINGS[lang];
@@ -529,32 +586,44 @@
       panelEl.innerHTML = html; panelEl.hidden = false; return;
     }
 
-    // chords coloured by sub zone of the root
+    // chords coloured by sub zone of the root — tap to hear
     html += `<div class="kp-section">${s.panelChords}</div><div class="kp-chords">`;
     for (const t of scaleTriads(homePc, homeScale)) {
-      html += `<span class="chord"><span class="deg">${roman(t.deg, t.qual)}</span>` +
-        `<span class="${ZONE_CLASS[PC_ZONE[t.root]]}">${chordLabel(t)}</span></span>`;
+      html += chordChip(t.root, TRIAD_IV[t.qual] || [0,4,7], chordLabel(t), roman(t.deg, t.qual), ZONE_CLASS[PC_ZONE[t.root]]);
+    }
+    html += `</div><div class="kp-hint">${s.hintPlay}</div>`;
+
+    // modulation targets, strongest sub first — tap a row to jump
+    const rel = relatedKeys(homePc, homeScale)
+      .sort((a, b) => (ZONE_RANK[PC_ZONE[a.tonicPc]] - ZONE_RANK[PC_ZONE[b.tonicPc]]) || (a.homeDeg - b.homeDeg));
+    const par = homeScale === MAJOR ? MINOR : MAJOR;
+    const targets = rel.concat([{ tonicPc: homePc, scale: par, parallel: true }]);
+    html += `<div class="kp-section">${s.panelModulate}</div>` +
+      `<table class="kp-table"><thead><tr><th>${s.thKey}</th><th>${s.thDeg}</th><th>${s.thSub}</th><th>${s.thBridge}</th></tr></thead><tbody>`;
+    for (const r of targets) {
+      const z = PC_ZONE[r.tonicPc];
+      const b = bridge(homePc, homeScale, r.tonicPc, r.scale);
+      const deg = r.parallel ? s.parallelTag : roman(r.homeDeg, r.homeQual);
+      html += `<tr data-root="${r.tonicPc}" data-scale="${r.scale.key}"${r.parallel ? ' class="parallel"' : ''}>` +
+        `<td class="${ZONE_CLASS[z]}">${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</td>` +
+        `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s)}</td></tr>`;
+    }
+    html += `</tbody></table><div class="kp-hint">${s.hintJump}</div>`;
+
+    // secondary dominant (V7) of each target — strong approach, tap to hear
+    html += `<div class="kp-section">${s.panelSecDom}</div><div class="kp-secdom">`;
+    for (const r of rel) {
+      const v = pcMod(r.tonicPc + 7);
+      html += `<span class="sd">` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") +
+        `<small>→ ${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</small></span>`;
     }
     html += `</div>`;
 
-    // modulation targets, strongest sub first
-    const rel = relatedKeys(homePc, homeScale)
-      .sort((a, b) => (ZONE_RANK[PC_ZONE[a.tonicPc]] - ZONE_RANK[PC_ZONE[b.tonicPc]]) || (a.homeDeg - b.homeDeg));
-    html += `<div class="kp-section">${s.panelModulate}</div>` +
-      `<table class="kp-table"><thead><tr><th>${s.thKey}</th><th>${s.thDeg}</th><th>${s.thSub}</th><th>${s.thBridge}</th></tr></thead><tbody>`;
-    for (const r of rel) {
-      const z = PC_ZONE[r.tonicPc];
-      const b = bridge(homePc, homeScale, r.tonicPc, r.scale);
-      html += `<tr><td class="${ZONE_CLASS[z]}">${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</td>` +
-        `<td>${roman(r.homeDeg, r.homeQual)}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s)}</td></tr>`;
+    // home's strong dominant (harmonic-minor V) for minor keys
+    if (homeScale.key === "minor") {
+      const v = pcMod(homePc + 7);
+      html += `<div class="kp-homedom">${s.panelHomeDom}: ` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") + `</div>`;
     }
-    // parallel key bonus
-    const par = homeScale === MAJOR ? MINOR : MAJOR;
-    const pz = PC_ZONE[homePc];
-    const pb = bridge(homePc, homeScale, homePc, par);
-    html += `<tr class="parallel"><td class="${ZONE_CLASS[pz]}">${ROOT_NAMES[homePc]} ${par.label}</td>` +
-      `<td>${s.parallelTag}</td><td>${ZONE_MARK[pz]}</td><td>${bridgeText(pb, s)}</td></tr>`;
-    html += `</tbody></table>`;
 
     panelEl.innerHTML = html; panelEl.hidden = false;
   }
@@ -601,6 +670,22 @@
     if (!key) return;
     rootSel.value = String(key.dataset.pc);
     applyLookup();
+  });
+  panelEl.addEventListener("click", e => {
+    const chip = e.target.closest(".playable");
+    if (chip) {
+      playChord(+chip.dataset.root, chip.dataset.iv.split(",").map(Number));
+      chip.classList.add("playing");
+      setTimeout(() => chip.classList.remove("playing"), 140);
+      return;
+    }
+    const tr = e.target.closest("tr[data-root]");
+    if (tr) {
+      rootSel.value = tr.dataset.root;
+      const si = SCALES.findIndex(x => x.key === tr.dataset.scale);
+      if (si >= 0) scaleSel.value = String(si);
+      applyLookup();
+    }
   });
 
   // restore selection from URL → localStorage
