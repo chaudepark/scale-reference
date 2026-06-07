@@ -73,6 +73,32 @@
   .kbd-zone { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.6rem 1.4rem 1.3rem; }
   .keyboard.filtering .white:not(.in-key), .keyboard.filtering .black:not(.in-key) { opacity: .2; }
   .white.in-key, .black.in-key { outline: 3px solid #fff; outline-offset: -3px; }
+  .white, .black { cursor: pointer; }
+
+  /* ---- key detail panel ---- */
+  .z-sweet { color: var(--sweet); } .z-ok { color: var(--ok); } .z-sub { color: var(--sub); }
+  .key-panel { margin-top: 1.5rem; border-top: 1px solid var(--card-border); padding-top: 1.3rem; }
+  .kp-title { font-size: 1.3rem; font-weight: 800; margin-bottom: .55rem; }
+  .kp-subnotes { font-size: .9rem; color: var(--muted); }
+  .kp-subnotes b { font-weight: 800; font-size: 1.05em; }
+  .kp-section { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 1.2rem 0 .55rem; }
+  .kp-chords { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .chord { background: #20242e; border: 1px solid #2c3240; border-radius: 8px; padding: .26rem .55rem; font-size: .92rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chord .deg { color: var(--muted); font-size: .72em; font-weight: 700; margin-right: .25rem; text-transform: none; }
+  .kp-table { width: 100%; border-collapse: collapse; font-size: .92rem; max-width: 560px; }
+  .kp-table th { text-align: left; font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: .3rem .5rem; border-bottom: 1px solid var(--card-border); }
+  .kp-table td { padding: .42rem .5rem; border-bottom: 1px solid #20242e; font-weight: 600; }
+  .kp-table td:first-child { font-weight: 800; }
+  .kp-table tr.parallel td { opacity: .8; }
+  .kp-table .arrow { color: var(--muted); font-weight: 500; font-size: .85em; }
+  .kp-note { font-size: .85rem; color: var(--muted); }
+
+  /* ---- collapsible full reference ---- */
+  .bykey { margin: 2.6rem 0 0; }
+  .bykey > summary { font-size: 1.05rem; font-weight: 700; cursor: pointer; list-style: none; color: var(--text); display: flex; align-items: center; gap: .5rem; }
+  .bykey > summary::-webkit-details-marker { display: none; }
+  .bykey > summary::before { content: "▸"; color: var(--accent); transition: transform .15s; }
+  .bykey[open] > summary::before { transform: rotate(90deg); }
   .keyboard { position: relative; display: flex; gap: 6px; height: 220px; max-width: 720px; margin: 0 auto; }
   .white {
     position: relative; flex: 1; border-radius: 0 0 8px 8px; background: #20242e;
@@ -155,15 +181,17 @@
     <select id="rootSel" aria-label="root"></select>
     <select id="scaleSel" aria-label="scale"></select>
     <button type="button" id="lookupClear"></button>
-    <span class="lookup-summary" id="lookupSummary"></span>
   </div>
   <div class="keyboard" id="keyboard"></div>
   <div class="legend" id="legend"></div>
+  <div class="key-panel" id="keyPanel" hidden></div>
 </section>
 
-<h2 id="t-keysH2"></h2>
-<p class="sub" id="t-keysIntro" style="margin-bottom:1.2rem"></p>
-<div class="grid" id="grid"></div>
+<details id="byKey" class="bykey">
+  <summary id="t-byKeySummary"></summary>
+  <p class="sub" id="t-keysIntro" style="margin:.8rem 0 1.2rem"></p>
+  <div class="grid" id="grid"></div>
+</details>
 
 <h2 id="t-whyH2"></h2>
 <div class="tips" id="tips"></div>
@@ -185,11 +213,16 @@
         ok: "Solid — usable (D1–D#1 / G#1–A1)",
         sub: "Suboptimal — tends to get weak",
       },
-      lookupLabel: "Highlight a key:",
+      lookupLabel: "Pick a key (or tap the keyboard):",
       lookupNone: "— select —",
       lookupClear: "Clear",
-      lookupSummary: (root, scale, sweet, solid) =>
-        `${root} ${scale} → sweet spot: ${sweet.length ? sweet.join(" ") : "—"}　·　solid: ${solid.length ? solid.join(" ") : "—"}`,
+      panelSubNotes: "Sub notes in this key",
+      panelChords: "Chords — root coloured by sub zone",
+      panelModulate: "Modulate to — strongest sub first",
+      panelModeNote: "Chord & modulation view is shown for Major / Minor.",
+      thKey: "Key", thDeg: "Deg", thSub: "Sub", thBridge: "Bridge (pivot)",
+      parallelTag: "parallel", panelBorrow: "borrow / direct",
+      byKeySummary: "Full reference — every sub note → all its keys",
       keysH2: "By key — keys that put your sub root in the sweet spot",
       keysIntro: "For each sub note (the 8 sweet-spot + solid notes), the keys that contain it as a root — computed from each scale formula (7 keys each). Major / Minor sit on top for early writing; the modes below are for when you modulate. Enharmonics are interchangeable (F#≡G♭ / D#≡E♭ / G#≡A♭).",
       modesDivider: "Modes — for modulation",
@@ -208,11 +241,16 @@
         ok: "Solid — 使える (D1–D#1 / G#1–A1)",
         sub: "Suboptimal — 弱くなりがち",
       },
-      lookupLabel: "キーをハイライト:",
+      lookupLabel: "キーを選択（鍵盤タップでも可）:",
       lookupNone: "—（未選択）",
       lookupClear: "クリア",
-      lookupSummary: (root, scale, sweet, solid) =>
-        `${root} ${scale} → スイートスポット: ${sweet.length ? sweet.join(" ") : "—"}　・　ソリッド: ${solid.length ? solid.join(" ") : "—"}`,
+      panelSubNotes: "このキーで使えるサブ音",
+      panelChords: "コード — ルートをサブ域で色分け",
+      panelModulate: "転調先 — サブが強い順",
+      panelModeNote: "コード・転調ビューは Major / Minor で表示されます。",
+      thKey: "キー", thDeg: "度数", thSub: "サブ", thBridge: "ブリッジ（ピボット）",
+      parallelTag: "同主調", panelBorrow: "借用・直接",
+      byKeySummary: "フル早見表 — 全サブ音 → 入る調すべて",
       keysH2: "キー別 — サブの根音がスイートスポットに入る調",
       keysIntro: "各サブノート（sweet spot + solid の8音）を根音として使ったとき、それを含む調の早見。各スケールの定義から算出した全7調。制作初期は上の Major / Minor だけ見ればOK、下のモードは転調時の選択肢。エンハーモニックは適宜読み替え（F#≡G♭ / D#≡E♭ / G#≡A♭）。",
       modesDivider: "モード — 転調用",
@@ -389,14 +427,25 @@
     }
   }
 
-  /* ---- key reverse-lookup ---- */
+  /* ---- key reverse-lookup + modulation panel ---- */
   let CURRENT_LANG = "en";
   const rootSel = document.getElementById("rootSel");
   const scaleSel = document.getElementById("scaleSel");
   const lookupClear = document.getElementById("lookupClear");
-  const lookupSummaryEl = document.getElementById("lookupSummary");
   const kbEl = document.getElementById("keyboard");
+  const panelEl = document.getElementById("keyPanel");
 
+  const CHORD_NAMES = MINOR_NAMES;
+  const MAJOR = SCALES.find(s => s.key === "major");
+  const MINOR = SCALES.find(s => s.key === "minor");
+  const PC_ZONE = {};
+  SUB_NOTES.forEach(n => { PC_ZONE[NOTE_PC[n.n]] = n.zone; });   // "sweet" | "ok" | "sub-z"
+  const ZONE_RANK = { sweet: 0, ok: 1, "sub-z": 2 };
+  const ZONE_CLASS = { sweet: "z-sweet", ok: "z-ok", "sub-z": "z-sub" };
+  const ZONE_MARK = { sweet: "🟢", ok: "🟡", "sub-z": "🔴" };
+  const pcMod = n => ((n % 12) + 12) % 12;
+
+  // build option lists once
   const noneOpt = document.createElement("option");
   noneOpt.value = "";
   rootSel.appendChild(noneOpt);
@@ -412,32 +461,164 @@
     scaleSel.appendChild(o);
   });
 
-  function buildLookupOptions(lang) {
-    noneOpt.textContent = STRINGS[lang].lookupNone;
-    document.getElementById("t-lookupLabel").textContent = STRINGS[lang].lookupLabel;
-    lookupClear.textContent = STRINGS[lang].lookupClear;
+  // ---- music-theory helpers ----
+  function scaleTriads(tonicPc, scale) {
+    const pcs = scale.pat.map(iv => pcMod(tonicPc + iv));
+    const out = [];
+    for (let d = 0; d < 7; d++) {
+      const r = pcs[d], third = pcs[(d + 2) % 7], fifth = pcs[(d + 4) % 7];
+      const i3 = pcMod(third - r), i5 = pcMod(fifth - r);
+      let qual = "?";
+      if (i3 === 4 && i5 === 7) qual = "maj";
+      else if (i3 === 3 && i5 === 7) qual = "min";
+      else if (i3 === 3 && i5 === 6) qual = "dim";
+      else if (i3 === 4 && i5 === 8) qual = "aug";
+      out.push({ deg: d, root: r, qual });
+    }
+    return out;
+  }
+  function roman(deg, qual) {
+    const base = ["I","II","III","IV","V","VI","VII"][deg];
+    if (qual === "maj") return base;
+    if (qual === "aug") return base + "+";
+    if (qual === "min") return base.toLowerCase();
+    if (qual === "dim") return base.toLowerCase() + "°";
+    return base;
+  }
+  function chordLabel(t) {
+    const suf = t.qual === "min" ? "m" : t.qual === "dim" ? "dim" : t.qual === "aug" ? "aug" : "";
+    return CHORD_NAMES[t.root] + suf;
+  }
+  function relatedKeys(homePc, homeScale) {
+    return scaleTriads(homePc, homeScale)
+      .filter(t => t.deg !== 0 && (t.qual === "maj" || t.qual === "min"))
+      .map(t => ({ tonicPc: t.root, scale: t.qual === "maj" ? MAJOR : MINOR, homeDeg: t.deg, homeQual: t.qual }));
+  }
+  // best pivot (common diatonic chord); prefer pre-dominant (IV/ii) in target, avoid V/vii
+  function bridge(homePc, homeScale, targetPc, targetScale) {
+    const H = scaleTriads(homePc, homeScale), T = scaleTriads(targetPc, targetScale);
+    const common = [];
+    for (const h of H) {
+      if (h.qual !== "maj" && h.qual !== "min") continue;
+      const tt = T.find(x => x.root === h.root && x.qual === h.qual);
+      if (tt) common.push({ root: h.root, qual: h.qual, homeDeg: h.deg, targetDeg: tt.deg });
+    }
+    if (!common.length) return null;
+    const pref = { 3: 0, 1: 1, 5: 2, 2: 3, 0: 4, 6: 8, 4: 9 };
+    common.sort((a, b) => (pref[a.targetDeg] ?? 5) - (pref[b.targetDeg] ?? 5));
+    return common[0];
+  }
+  const bridgeText = (b, s) => b
+    ? `${chordLabel(b)} <span class="arrow">(${roman(b.homeDeg, b.qual)}→${roman(b.targetDeg, b.qual)})</span>`
+    : s.panelBorrow;
+
+  // ---- panel render ----
+  function renderPanel(homePc, homeScale, lang) {
+    const s = STRINGS[lang];
+    const set = new Set(homeScale.pat.map(iv => pcMod(homePc + iv)));
+    const sweet = SUB.filter(x => x.zone === "sweet" && set.has(x.pc)).map(x => x.n);
+    const solid = SUB.filter(x => x.zone === "ok" && set.has(x.pc)).map(x => x.n);
+    let html =
+      `<div class="kp-title">${ROOT_NAMES[homePc]} ${homeScale.label}</div>` +
+      `<div class="kp-subnotes">${s.panelSubNotes}: ` +
+      `<b class="z-sweet">${sweet.join(" ") || "—"}</b>　·　<b class="z-ok">${solid.join(" ") || "—"}</b></div>`;
+
+    const isMajMin = homeScale.key === "major" || homeScale.key === "minor";
+    if (!isMajMin) {
+      html += `<div class="kp-section">&nbsp;</div><div class="kp-note">${s.panelModeNote}</div>`;
+      panelEl.innerHTML = html; panelEl.hidden = false; return;
+    }
+
+    // chords coloured by sub zone of the root
+    html += `<div class="kp-section">${s.panelChords}</div><div class="kp-chords">`;
+    for (const t of scaleTriads(homePc, homeScale)) {
+      html += `<span class="chord"><span class="deg">${roman(t.deg, t.qual)}</span>` +
+        `<span class="${ZONE_CLASS[PC_ZONE[t.root]]}">${chordLabel(t)}</span></span>`;
+    }
+    html += `</div>`;
+
+    // modulation targets, strongest sub first
+    const rel = relatedKeys(homePc, homeScale)
+      .sort((a, b) => (ZONE_RANK[PC_ZONE[a.tonicPc]] - ZONE_RANK[PC_ZONE[b.tonicPc]]) || (a.homeDeg - b.homeDeg));
+    html += `<div class="kp-section">${s.panelModulate}</div>` +
+      `<table class="kp-table"><thead><tr><th>${s.thKey}</th><th>${s.thDeg}</th><th>${s.thSub}</th><th>${s.thBridge}</th></tr></thead><tbody>`;
+    for (const r of rel) {
+      const z = PC_ZONE[r.tonicPc];
+      const b = bridge(homePc, homeScale, r.tonicPc, r.scale);
+      html += `<tr><td class="${ZONE_CLASS[z]}">${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</td>` +
+        `<td>${roman(r.homeDeg, r.homeQual)}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s)}</td></tr>`;
+    }
+    // parallel key bonus
+    const par = homeScale === MAJOR ? MINOR : MAJOR;
+    const pz = PC_ZONE[homePc];
+    const pb = bridge(homePc, homeScale, homePc, par);
+    html += `<tr class="parallel"><td class="${ZONE_CLASS[pz]}">${ROOT_NAMES[homePc]} ${par.label}</td>` +
+      `<td>${s.parallelTag}</td><td>${ZONE_MARK[pz]}</td><td>${bridgeText(pb, s)}</td></tr>`;
+    html += `</tbody></table>`;
+
+    panelEl.innerHTML = html; panelEl.hidden = false;
+  }
+
+  // ---- URL + persistence (minimise re-selection) ----
+  function updateURL(pc, scaleKey) {
+    try {
+      const u = new URL(window.location.href);
+      if (pc == null) { u.searchParams.delete("root"); u.searchParams.delete("scale"); }
+      else { u.searchParams.set("root", ROOT_NAMES[pc]); u.searchParams.set("scale", scaleKey); }
+      history.replaceState(null, "", u);
+    } catch (e) {}
   }
 
   function applyLookup() {
     if (rootSel.value === "") {
       kbEl.classList.remove("filtering");
       kbEl.querySelectorAll(".in-key").forEach(e => e.classList.remove("in-key"));
-      lookupSummaryEl.textContent = "";
+      panelEl.hidden = true; panelEl.innerHTML = "";
+      updateURL(null); store("subbass-key", "");
       return;
     }
     const pc = +rootSel.value;
     const scale = SCALES[+scaleSel.value];
-    const set = new Set(scale.pat.map(iv => (pc + iv) % 12));
+    const set = new Set(scale.pat.map(iv => pcMod(pc + iv)));
     kbEl.classList.add("filtering");
     kbEl.querySelectorAll("[data-pc]").forEach(e => e.classList.toggle("in-key", set.has(+e.dataset.pc)));
-    const sweet = SUB.filter(x => x.zone === "sweet" && set.has(x.pc)).map(x => x.n);
-    const solid = SUB.filter(x => x.zone === "ok" && set.has(x.pc)).map(x => x.n);
-    lookupSummaryEl.textContent = STRINGS[CURRENT_LANG].lookupSummary(ROOT_NAMES[pc], scale.label, sweet, solid);
+    renderPanel(pc, scale, CURRENT_LANG);
+    updateURL(pc, scale.key);
+    store("subbass-key", rootSel.value + "|" + scaleSel.value);
+  }
+
+  function buildLookupOptions(lang) {
+    noneOpt.textContent = STRINGS[lang].lookupNone;
+    document.getElementById("t-lookupLabel").textContent = STRINGS[lang].lookupLabel;
+    lookupClear.textContent = STRINGS[lang].lookupClear;
   }
 
   rootSel.addEventListener("change", applyLookup);
   scaleSel.addEventListener("change", applyLookup);
   lookupClear.addEventListener("click", () => { rootSel.value = ""; applyLookup(); });
+  kbEl.addEventListener("click", e => {
+    const key = e.target.closest("[data-pc]");
+    if (!key) return;
+    rootSel.value = String(key.dataset.pc);
+    applyLookup();
+  });
+
+  // restore selection from URL → localStorage
+  (function initSelection() {
+    let pc = null, scaleIdx = null;
+    try {
+      const u = new URL(window.location.href);
+      const r = u.searchParams.get("root"), sc = u.searchParams.get("scale");
+      if (r != null) { const i = ROOT_NAMES.indexOf(r); if (i >= 0) pc = i; }
+      if (sc != null) { const si = SCALES.findIndex(x => x.key === sc); if (si >= 0) scaleIdx = si; }
+    } catch (e) {}
+    if (pc == null) {
+      const saved = load("subbass-key");
+      if (saved) { const [rv, sv] = saved.split("|"); if (rv !== "" && rv != null) pc = +rv; if (sv != null && sv !== "") scaleIdx = +sv; }
+    }
+    if (pc != null) rootSel.value = String(pc);
+    if (scaleIdx != null) scaleSel.value = String(scaleIdx);
+  })();
 
   function render(lang) {
     const s = STRINGS[lang];
@@ -446,7 +627,7 @@
     document.title = s.title;
     document.getElementById("t-h1").textContent = s.h1;
     document.getElementById("t-intro").textContent = s.intro;
-    document.getElementById("t-keysH2").textContent = s.keysH2;
+    document.getElementById("t-byKeySummary").textContent = s.byKeySummary;
     document.getElementById("t-keysIntro").textContent = s.keysIntro;
     document.getElementById("t-whyH2").textContent = s.whyH2;
     document.getElementById("legend").innerHTML =
