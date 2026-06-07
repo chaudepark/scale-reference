@@ -637,7 +637,7 @@
     const basis = modBasis(homePc, homeScale);
     let basisNote = "";
     if (basis.note === "minor") basisNote = s.basisMinor;
-    else if (basis.note === "parent") basisNote = s.basisParent(ROOT_NAMES[basis.pc] + " major");
+    else if (basis.note === "parent") basisNote = s.basisParent(basis.scale.names[basis.pc] + " major");
     const minorFamily = homeScale.key === "minor" || homeScale.key === "hminor" || homeScale.key === "mminor";
 
     // ----- left column: sub notes + chords -----
@@ -665,7 +665,7 @@
       const b = bridge(basis.pc, basis.scale, r.tonicPc, r.scale);
       const deg = r.parallel ? s.parallelTag : roman(r.homeDeg, r.homeQual);
       right += `<tr data-root="${r.tonicPc}" data-scale="${r.scale.key}"${r.parallel ? ' class="parallel"' : ''}>` +
-        `<td class="${ZONE_CLASS[z]}">${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</td>` +
+        `<td class="${ZONE_CLASS[z]}">${r.scale.names[r.tonicPc]} ${r.scale.label}</td>` +
         `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s)}</td></tr>`;
     }
     right += `</tbody></table><div class="kp-hint">${s.hintJump}</div>`;
@@ -674,7 +674,7 @@
     for (const r of rel) {
       const v = pcMod(r.tonicPc + 7);
       right += `<span class="sd">` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") +
-        `<small>→ ${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</small></span>`;
+        `<small>→ ${r.scale.names[r.tonicPc]} ${r.scale.label}</small></span>`;
     }
     right += `</div>`;
 
@@ -685,7 +685,7 @@
     }
 
     panelEl.innerHTML =
-      `<div class="kp-title">${ROOT_NAMES[homePc]} ${homeScale.label}</div>` +
+      `<div class="kp-title">${homeScale.names[homePc]} ${homeScale.label}</div>` +
       `<div class="kp-cols"><div class="kp-left">${left}</div><div class="kp-right">${right}</div></div>`;
     panelEl.hidden = false;
   }
