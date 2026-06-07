@@ -4,6 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Best Sub Bass Notes — Cheatsheet</title>
+<meta name="description" content="Sub-bass sweet-spot notes, the keys each one fits per scale, and the evidence behind the range. A quick reference for music production. EN / 日本語.">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- Open Graph / Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Best Sub Bass Notes">
+<meta property="og:description" content="Sub-bass sweet spot, the keys each note fits per scale & the evidence behind them. EN / 日本語.">
+<meta property="og:url" content="https://chaudepark.github.io/scale-reference/">
+<meta property="og:image" content="https://chaudepark.github.io/scale-reference/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Best Sub Bass Notes">
+<meta name="twitter:description" content="Sub-bass sweet spot, the keys each note fits per scale & the evidence behind them. EN / 日本語.">
+<meta name="twitter:image" content="https://chaudepark.github.io/scale-reference/og.png">
 <style>
   :root {
     --bg: #0f1115;
@@ -42,8 +59,20 @@
   .lang button { background: none; border: none; color: var(--muted); font: inherit; font-size: .76rem; font-weight: 700; padding: .22rem .65rem; border-radius: 999px; cursor: pointer; }
   .lang button.active { background: var(--accent); color: #0f1115; }
 
+  /* ---- key reverse-lookup ---- */
+  .lookup { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: 1.4rem; font-size: .85rem; }
+  .lookup-label { color: var(--muted); font-weight: 600; }
+  .lookup select, .lookup button {
+    background: #20242e; color: var(--text); border: 1px solid #2c3240; border-radius: 8px;
+    padding: .35rem .55rem; font: inherit; font-size: .85rem; cursor: pointer;
+  }
+  .lookup button:hover { border-color: var(--accent); }
+  .lookup-summary { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; margin-left: .2rem; }
+
   /* ---- keyboard ---- */
   .kbd-zone { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.6rem 1.4rem 1.3rem; }
+  .keyboard.filtering .white:not(.in-key), .keyboard.filtering .black:not(.in-key) { opacity: .2; }
+  .white.in-key, .black.in-key { outline: 3px solid #fff; outline-offset: -3px; }
   .keyboard { position: relative; display: flex; gap: 6px; height: 220px; max-width: 720px; margin: 0 auto; }
   .white {
     position: relative; flex: 1; border-radius: 0 0 8px 8px; background: #20242e;
@@ -121,6 +150,13 @@
 </header>
 
 <section class="kbd-zone">
+  <div class="lookup">
+    <span class="lookup-label" id="t-lookupLabel"></span>
+    <select id="rootSel" aria-label="root"></select>
+    <select id="scaleSel" aria-label="scale"></select>
+    <button type="button" id="lookupClear"></button>
+    <span class="lookup-summary" id="lookupSummary"></span>
+  </div>
   <div class="keyboard" id="keyboard"></div>
   <div class="legend" id="legend"></div>
 </section>
@@ -149,6 +185,11 @@
         ok: "Solid — usable (D1–D#1 / G#1–A1)",
         sub: "Suboptimal — tends to get weak",
       },
+      lookupLabel: "Highlight a key:",
+      lookupNone: "— select —",
+      lookupClear: "Clear",
+      lookupSummary: (root, scale, sweet, solid) =>
+        `${root} ${scale} → sweet spot: ${sweet.length ? sweet.join(" ") : "—"}　·　solid: ${solid.length ? solid.join(" ") : "—"}`,
       keysH2: "By key — keys that put your sub root in the sweet spot",
       keysIntro: "For each sub note (the 8 sweet-spot + solid notes), the keys that contain it as a root — computed from each scale formula (7 keys each). Major / Minor sit on top for early writing; the modes below are for when you modulate. Enharmonics are interchangeable (F#≡G♭ / D#≡E♭ / G#≡A♭).",
       modesDivider: "Modes — for modulation",
@@ -167,6 +208,11 @@
         ok: "Solid — 使える (D1–D#1 / G#1–A1)",
         sub: "Suboptimal — 弱くなりがち",
       },
+      lookupLabel: "キーをハイライト:",
+      lookupNone: "—（未選択）",
+      lookupClear: "クリア",
+      lookupSummary: (root, scale, sweet, solid) =>
+        `${root} ${scale} → スイートスポット: ${sweet.length ? sweet.join(" ") : "—"}　・　ソリッド: ${solid.length ? solid.join(" ") : "—"}`,
       keysH2: "キー別 — サブの根音がスイートスポットに入る調",
       keysIntro: "各サブノート（sweet spot + solid の8音）を根音として使ったとき、それを含む調の早見。各スケールの定義から算出した全7調。制作初期は上の Major / Minor だけ見ればOK、下のモードは転調時の選択肢。エンハーモニックは適宜読み替え（F#≡G♭ / D#≡E♭ / G#≡A♭）。",
       modesDivider: "モード — 転調用",
@@ -229,6 +275,9 @@
     { n:"B",  acc:false, hz:"61.7", zone:"sub-z" },
   ];
 
+  const NOTE_PC = { "C":0, "C#":1, "D":2, "D#":3, "E":4, "F":5, "F#":6, "G":7, "G#":8, "A":9, "A#":10, "B":11 };
+  const ROOT_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
   (function buildKeyboard() {
     const keyboard = document.getElementById("keyboard");
     const whites = SUB_NOTES.filter(x => !x.acc);
@@ -236,6 +285,7 @@
     whites.forEach(w => {
       const el = document.createElement("div");
       el.className = "white " + w.zone;
+      el.dataset.pc = NOTE_PC[w.n];
       el.innerHTML = `<span class="hz">${w.hz}</span><span class="name">${w.n}</span>`;
       keyboard.appendChild(el);
     });
@@ -244,6 +294,7 @@
       const leftWhite = SUB_NOTES.slice(0, i).filter(x => !x.acc).length;
       const el = document.createElement("div");
       el.className = "black " + note.zone;
+      el.dataset.pc = NOTE_PC[note.n];
       el.style.left = (leftWhite / totalWhite) * 100 + "%";
       el.innerHTML = `<span class="name">${note.n}</span><span class="hz">${note.hz}</span>`;
       keyboard.appendChild(el);
@@ -338,8 +389,59 @@
     }
   }
 
+  /* ---- key reverse-lookup ---- */
+  let CURRENT_LANG = "en";
+  const rootSel = document.getElementById("rootSel");
+  const scaleSel = document.getElementById("scaleSel");
+  const lookupClear = document.getElementById("lookupClear");
+  const lookupSummaryEl = document.getElementById("lookupSummary");
+  const kbEl = document.getElementById("keyboard");
+
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "";
+  rootSel.appendChild(noneOpt);
+  ROOT_NAMES.forEach((n, pc) => {
+    const o = document.createElement("option");
+    o.value = pc; o.textContent = n;
+    rootSel.appendChild(o);
+  });
+  rootSel.value = "";
+  SCALES.forEach((sc, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = sc.label;
+    scaleSel.appendChild(o);
+  });
+
+  function buildLookupOptions(lang) {
+    noneOpt.textContent = STRINGS[lang].lookupNone;
+    document.getElementById("t-lookupLabel").textContent = STRINGS[lang].lookupLabel;
+    lookupClear.textContent = STRINGS[lang].lookupClear;
+  }
+
+  function applyLookup() {
+    if (rootSel.value === "") {
+      kbEl.classList.remove("filtering");
+      kbEl.querySelectorAll(".in-key").forEach(e => e.classList.remove("in-key"));
+      lookupSummaryEl.textContent = "";
+      return;
+    }
+    const pc = +rootSel.value;
+    const scale = SCALES[+scaleSel.value];
+    const set = new Set(scale.pat.map(iv => (pc + iv) % 12));
+    kbEl.classList.add("filtering");
+    kbEl.querySelectorAll("[data-pc]").forEach(e => e.classList.toggle("in-key", set.has(+e.dataset.pc)));
+    const sweet = SUB.filter(x => x.zone === "sweet" && set.has(x.pc)).map(x => x.n);
+    const solid = SUB.filter(x => x.zone === "ok" && set.has(x.pc)).map(x => x.n);
+    lookupSummaryEl.textContent = STRINGS[CURRENT_LANG].lookupSummary(ROOT_NAMES[pc], scale.label, sweet, solid);
+  }
+
+  rootSel.addEventListener("change", applyLookup);
+  scaleSel.addEventListener("change", applyLookup);
+  lookupClear.addEventListener("click", () => { rootSel.value = ""; applyLookup(); });
+
   function render(lang) {
     const s = STRINGS[lang];
+    CURRENT_LANG = lang;
     document.documentElement.lang = lang;
     document.title = s.title;
     document.getElementById("t-h1").textContent = s.h1;
@@ -355,6 +457,8 @@
       `<strong>${s.footerNote}</strong>${s.footerNoteBody}<br>${s.footerEdit}`;
     buildGrid(lang);
     buildTips(lang);
+    buildLookupOptions(lang);
+    applyLookup();
     document.querySelectorAll("#langToggle button").forEach(b => {
       b.classList.toggle("active", b.dataset.lang === lang);
     });
@@ -379,6 +483,13 @@
   });
 
   render(detectLang());
+
+  /* ---- PWA service worker (offline) ---- */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
 </script>
 </body>
 </html>
