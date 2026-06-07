@@ -83,7 +83,11 @@
   .kp-subnotes b { font-weight: 800; font-size: 1.05em; }
   .kp-section { font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text); margin: 1.5rem 0 .7rem; }
   .kp-right > .kp-section:first-of-type { margin-top: 0; }
-  .kp-chords { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .kp-chords { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: .5rem; align-items: start; }
+  .kp-pedal { display: flex; flex-direction: column; gap: .4rem; }
+  .pedal-row { display: flex; align-items: baseline; gap: .6rem; font-size: .9rem; }
+  .pedal-note { font-weight: 800; min-width: 2.4em; }
+  .pedal-chords { color: var(--muted); font-weight: 600; }
   .chord { background: #20242e; border: 1px solid #2c3240; border-radius: 8px; padding: .26rem .55rem; font-size: .92rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .chord .deg { color: var(--muted); font-size: .72em; font-weight: 700; margin-right: .25rem; text-transform: none; }
   .kp-table { width: 100%; border-collapse: collapse; font-size: .92rem; max-width: 560px; }
@@ -97,7 +101,7 @@
   .chord.playable { cursor: pointer; user-select: none; transition: transform .06s, border-color .12s; }
   .chord.playable:hover { border-color: var(--accent); }
   .chord.playable:active, .chord.playing { transform: translateY(1px); border-color: var(--accent); }
-  .chord-card { background: #20242e; border: 1px solid #2c3240; border-radius: 9px; padding: .42rem .55rem; cursor: pointer; min-width: 82px; transition: transform .06s, border-color .12s; }
+  .chord-card { background: #20242e; border: 1px solid #2c3240; border-radius: 9px; padding: .42rem .55rem; cursor: pointer; min-width: 0; transition: transform .06s, border-color .12s; }
   .chord-card:hover { border-color: var(--accent); }
   .chord-card.playing { transform: translateY(1px); border-color: var(--accent); }
   .cc-name { font-size: .98rem; font-weight: 800; }
@@ -257,6 +261,7 @@
       lookupClear: "Clear",
       panelSubNotes: "Sub notes in this key",
       panelChords: "Chords — tones & sub-friendly bass",
+      panelPedal: "Hold one sub under these (pedal)",
       panelModulate: "Modulate to — strongest sub first",
       panelModeNote: "Chord & modulation view is shown for Major / Minor.",
       thKey: "Key", thDeg: "Deg", thSub: "Sub", thBridge: "Bridge (pivot)",
@@ -292,6 +297,7 @@
       lookupClear: "クリア",
       panelSubNotes: "このキーで使えるサブ音",
       panelChords: "コード — 構成音とサブ向きの低音",
+      panelPedal: "サブをキープできる音（ペダル）",
       panelModulate: "転調先 — サブが強い順",
       panelModeNote: "コード・転調ビューは Major / Minor で表示されます。",
       thKey: "キー", thDeg: "度数", thSub: "サブ", thBridge: "ブリッジ（ピボット）",
@@ -567,8 +573,8 @@
     minor: { 0:"T", 1:"S", 2:"T", 3:"S", 4:"D", 5:"S", 6:"D" },
   };
   const funcOf = (scale, deg) => FUNC[scale.key === "major" ? "major" : "minor"][deg];
-  const bridgeText = (b, s, homeScale, targetScale) => b
-    ? `${chordLabel(b)} <span class="arrow">(${roman(b.homeDeg, b.qual)}→${roman(b.targetDeg, b.qual)})</span>` +
+  const bridgeText = (b, s, homeScale, targetScale, pivotName) => b
+    ? `${pivotName} <span class="arrow">(${roman(b.homeDeg, b.qual)}→${roman(b.targetDeg, b.qual)})</span>` +
       ` <span class="func">${funcOf(homeScale, b.homeDeg)}→${funcOf(targetScale, b.targetDeg)}</span>`
     : s.panelBorrow;
 
@@ -580,17 +586,44 @@
     return `<span class="chord playable" data-root="${rootPc}" data-iv="${iv.join(",")}">${deg}${lab}</span>`;
   }
 
-  // chord card: tones coloured by sub zone + slash (inversion) options for a strong sub
-  function chordCard(t) {
-    const ivs = TRIAD_IV[t.qual] || [0,4,7];
-    const tones = ivs.map(iv => pcMod(t.root + iv));
-    const name = chordLabel(t);
-    const strip = tones.map((pc, i) =>
-      `<span class="tn ${ZONE_CLASS[PC_ZONE[pc]]}${i === 0 ? " tnroot" : ""}">${CHORD_NAMES[pc]}</span>`).join("");
-    const slash = tones.slice(1).filter(pc => PC_ZONE[pc] !== "sub-z")
-      .map(pc => `<span class="slash ${ZONE_CLASS[PC_ZONE[pc]]}">${name}/${CHORD_NAMES[pc]}</span>`).join("");
-    return `<div class="chord-card playable" data-root="${t.root}" data-iv="${ivs.join(",")}">` +
-      `<div class="cc-name"><span class="deg">${roman(t.deg, t.qual)}</span> <span class="${ZONE_CLASS[PC_ZONE[t.root]]}">${name}</span></div>` +
+  // ---- diatonic note spelling (correct letter names per key) ----
+  const LETTERS = ["C","D","E","F","G","A","B"];
+  const LETTER_PC = [0,2,4,5,7,9,11];
+  function parseNote(name) {
+    const letter = LETTERS.indexOf(name[0]);
+    let acc = 0;
+    for (const ch of name.slice(1)) { if (ch === "#") acc++; else if (ch === "♭" || ch === "b") acc--; }
+    return { letter, acc };
+  }
+  const accStr = a => a === 0 ? "" : a > 0 ? "#".repeat(a) : "♭".repeat(-a);
+  function spellPc(pc, letterIndex) {
+    let d = ((pc - LETTER_PC[letterIndex]) % 12 + 12) % 12;
+    if (d > 6) d -= 12;
+    return LETTERS[letterIndex] + accStr(d);
+  }
+  function spellScale(tonicName, pat) {
+    const { letter, acc } = parseNote(tonicName);
+    const tonicPc = pcMod(LETTER_PC[letter] + acc);
+    return pat.map((iv, i) => spellPc(pcMod(tonicPc + iv), (letter + i) % 7));
+  }
+  const fifthName = tonicName => {
+    const { letter, acc } = parseNote(tonicName);
+    return spellPc(pcMod(LETTER_PC[letter] + acc + 7), (letter + 4) % 7);
+  };
+  const qualSuffix = q => q === "min" ? "m" : q === "dim" ? "dim" : q === "aug" ? "aug" : "";
+
+  // chord card: diatonic spelling, tones coloured by sub zone + slash (inversion) options
+  function chordCard(deg, qual, spelled, scalePcs) {
+    const idx = [deg, (deg + 2) % 7, (deg + 4) % 7];
+    const name = spelled[deg] + qualSuffix(qual);
+    const rootPc = scalePcs[deg];
+    const ivs = TRIAD_IV[qual] || [0,4,7];
+    const strip = idx.map((di, i) =>
+      `<span class="tn ${ZONE_CLASS[PC_ZONE[scalePcs[di]]]}${i === 0 ? " tnroot" : ""}">${spelled[di]}</span>`).join("");
+    const slash = idx.slice(1).filter(di => PC_ZONE[scalePcs[di]] !== "sub-z")
+      .map(di => `<span class="slash ${ZONE_CLASS[PC_ZONE[scalePcs[di]]]}">${name}/${spelled[di]}</span>`).join("");
+    return `<div class="chord-card playable" data-root="${rootPc}" data-iv="${ivs.join(",")}">` +
+      `<div class="cc-name"><span class="deg">${roman(deg, qual)}</span> <span class="${ZONE_CLASS[PC_ZONE[rootPc]]}">${name}</span></div>` +
       `<div class="cc-tones">${strip}</div>` +
       (slash ? `<div class="cc-slash">${slash}</div>` : "") +
       `</div>`;
@@ -647,6 +680,7 @@
       bridge: `<h3>Bridge (pivot chord)</h3><p>A <b>pivot chord</b> exists in <b>both</b> keys, so it works as a hinge to slip between them.</p><p>The numbers are its degree in each key; the badge is its harmonic <b>function</b>: <b>T</b> = tonic (stable / home), <b>S</b> = subdominant (departure), <b>D</b> = dominant (tension). A pivot feels smooth when its function makes sense in <b>both</b> keys.</p><p>Example C→G: <b>Em</b> is <b>iii (T)</b> in C and <b>vi (T)</b> in G — tonic in both, so the change is invisible. Then <b>D7</b> (G's dominant) drives the landing.</p>`,
       secdom: `<h3>Strong approach — secondary dominant (V7)</h3><p>Every key has one chord that <b>pulls strongly toward it</b>: its <b>V7</b> (dominant 7th).</p><p>Play the target's V7 right before it for a strong, obvious change. Example: to land on <b>F# major</b>, play <b>C#7 → F#</b>.</p><p>Versus a pivot (smooth, unnoticed), this is the <b>bold, dramatic</b> way in. Same destination.</p>`,
       homedom: `<h3>Strong dominant (harmonic-minor V)</h3><p>In natural minor the V chord is minor and feels weak. Borrowing from <b>harmonic minor</b> makes it a <b>major V7</b>, which resolves much more strongly to the tonic.</p><p>Example in A minor: <b>E7 → Am</b> for a strong cadence.</p>`,
+      pedal: `<h3>Pedal / drone sub</h3><p>A sub note that is a chord tone of several chords can be <b>held underneath</b> while the chords change above — a pedal (drone) bass, very common in techno / IDM.</p><p>This lists each sweet / solid sub note in the key and the chords you can keep it under. Example (A♭ major): hold <b>E♭</b> and play A♭/E♭ → Cm/E♭ → E♭ without moving the sub.</p>`,
     },
     ja: {
       zone: `<h3>サブ域の色分け</h3><p>各音を「<b>サブベースのルートとしての相性</b>」で色分けしています。</p><p><b class="z-sweet">緑＝スイートスポット</b>（E1–G#1, 約41–52Hz）— どの環境でも強く鳴る。<br><b class="z-ok">黄＝ソリッド</b>（D / D# / G# / A）— 使える。<br><b class="z-sub">赤＝弱い</b> — 消えやすい・弱く聞こえがち。</p><p>つまり緑のコードはルートに太いサブを置けます。</p>`,
@@ -654,6 +688,7 @@
       bridge: `<h3>ブリッジ（ピボットコード）</h3><p><b>ピボットコード</b>は今のキーと行き先の<b>両方に存在する</b>和音。これを“蝶番”にして転調します。</p><p>数字は各キーでの度数、バッジは和音<b>機能</b>：<b>T</b>＝トニック（安定・home）／<b>S</b>＝サブドミナント（出発）／<b>D</b>＝ドミナント（緊張）。<b>両方のキーで機能が筋の通る</b>ピボットほど滑らかです。</p><p>例 C→G：<b>Em</b> は Cで <b>IIIm (T)</b>、Gで <b>VIm (T)</b> ＝両方トニックなので気づかれず移れる。続く <b>D7</b>（Gのドミナント）で着地。</p>`,
       secdom: `<h3>強い導入 — セカンダリードミナント（V7）</h3><p>どのキーにも、そのキーへ<b>強く引っ張る</b>専用の和音＝<b>V7</b>（ドミナントセブンス）があります。</p><p>行き先の直前にその V7 を鳴らすと、はっきり強く転調できます。例：<b>F# major</b> に着地したいなら <b>C#7 → F#</b>。</p><p>ピボット（滑らか・気づかれない）に対し、これは<b>はっきり劇的</b>な入り方。行き先は同じです。</p>`,
       homedom: `<h3>強い属和音（harmonic minor の V）</h3><p>ナチュラルマイナーのVは“マイナー”で弱め。<b>harmonic minor</b> から借りるとVが<b>メジャーのV7</b>になり、主和音へ強く解決します。</p><p>例（A minor）：<b>E7 → Am</b> で強いケイデンス。</p>`,
+      pedal: `<h3>ペダル（ドローン）サブ</h3><p>複数のコードの構成音になっているサブ音は、上のコードを変えながら<b>下で保持</b>できます＝ペダル(ドローン)ベース。テクノ/IDMで頻出。</p><p>ここではキー内の各スイート/ソリッドのサブ音と、その音を下に保てるコードを一覧。例（A♭ major）：<b>E♭</b> を保持して A♭/E♭ → Cm/E♭ → E♭ とサブを動かさず進める。</p>`,
     },
   };
   function openHelp(topic) {
@@ -666,9 +701,12 @@
   // ---- panel render ----
   function renderPanel(homePc, homeScale, lang) {
     const s = STRINGS[lang];
-    const set = new Set(homeScale.pat.map(iv => pcMod(homePc + iv)));
-    const sweet = SUB.filter(x => x.zone === "sweet" && set.has(x.pc)).map(x => x.n);
-    const solid = SUB.filter(x => x.zone === "ok" && set.has(x.pc)).map(x => x.n);
+    const scalePcs = homeScale.pat.map(iv => pcMod(homePc + iv));
+    const spelled = spellScale(homeScale.names[homePc], homeScale.pat);
+    const pcName = {}; scalePcs.forEach((pc, i) => { pcName[pc] = spelled[i]; });
+    const inKey = new Set(scalePcs);
+    const sweet = SUB.filter(x => x.zone === "sweet" && inKey.has(x.pc)).map(x => pcName[x.pc]);
+    const solid = SUB.filter(x => x.zone === "ok" && inKey.has(x.pc)).map(x => pcName[x.pc]);
 
     const basis = modBasis(homePc, homeScale);
     let basisNote = "";
@@ -681,8 +719,24 @@
       `<div class="kp-subnotes">${s.panelSubNotes}: ` +
       `<b class="z-sweet">${sweet.join(" ") || "—"}</b>　·　<b class="z-ok">${solid.join(" ") || "—"}</b></div>` +
       `<div class="kp-section">${s.panelChords} ${helpBtn("voicing")}</div><div class="kp-chords">`;
-    for (const t of scaleTriads(homePc, homeScale)) left += chordCard(t);
+    const triads = scaleTriads(homePc, homeScale);
+    for (const t of triads) left += chordCard(t.deg, t.qual, spelled, scalePcs);
     left += `</div><div class="kp-hint">${s.hintPlay}</div>`;
+
+    // pedal: each good sub note + the diatonic chords you can hold it under
+    const pedal = scalePcs.map((pc, si) => ({ pc, si, zone: PC_ZONE[pc] }))
+      .filter(x => x.zone !== "sub-z")
+      .sort((a, b) => ZONE_RANK[a.zone] - ZONE_RANK[b.zone]);
+    if (pedal.length) {
+      left += `<div class="kp-section">${s.panelPedal} ${helpBtn("pedal")}</div><div class="kp-pedal">`;
+      for (const p of pedal) {
+        const degs = [p.si, (p.si + 5) % 7, (p.si + 3) % 7].sort((a, b) => a - b);
+        const chords = degs.map(d => spelled[d] + qualSuffix(triads[d].qual)).join("　");
+        left += `<div class="pedal-row"><span class="pedal-note ${ZONE_CLASS[p.zone]}">${spelled[p.si]}</span>` +
+          `<span class="pedal-chords">${chords}</span></div>`;
+      }
+      left += `</div>`;
+    }
 
     // ----- right column: modulation + secondary dominants + home dominant -----
     const rel = relatedKeys(basis.pc, basis.scale)
@@ -694,20 +748,23 @@
     let right = `<div class="kp-section">${s.panelModulate} ${helpBtn("bridge")}` +
       (basisNote ? `<span class="kp-basis">${basisNote}</span>` : "") + `</div>` +
       `<table class="kp-table"><thead><tr><th>${s.thKey}</th><th>${s.thDeg}</th><th>${s.thSub}</th><th>${s.thBridge}</th></tr></thead><tbody>`;
+    const basisSpelled = spellScale(basis.scale.names[basis.pc], basis.scale.pat);
     for (const r of targets) {
       const z = PC_ZONE[r.tonicPc];
       const b = bridge(basis.pc, basis.scale, r.tonicPc, r.scale);
       const deg = r.parallel ? s.parallelTag : roman(r.homeDeg, r.homeQual);
+      const keyName = (r.parallel ? homeScale.names[homePc] : r.scale.names[r.tonicPc]) + " " + r.scale.label;
+      const pivotName = b ? basisSpelled[b.homeDeg] + qualSuffix(b.qual) : "";
       right += `<tr data-root="${r.tonicPc}" data-scale="${r.scale.key}"${r.parallel ? ' class="parallel"' : ''}>` +
-        `<td class="${ZONE_CLASS[z]}">${r.scale.names[r.tonicPc]} ${r.scale.label}</td>` +
-        `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s, basis.scale, r.scale)}</td></tr>`;
+        `<td class="${ZONE_CLASS[z]}">${keyName}</td>` +
+        `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s, basis.scale, r.scale, pivotName)}</td></tr>`;
     }
     right += `</tbody></table><div class="kp-hint">${s.hintJump}</div>`;
 
     right += `<div class="kp-section">${s.panelSecDom} ${helpBtn("secdom")}</div><div class="kp-secdom">`;
     for (const r of rel) {
       const v = pcMod(r.tonicPc + 7);
-      right += `<span class="sd">` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") +
+      right += `<span class="sd">` + chordChip(v, [0,4,7,10], fifthName(r.scale.names[r.tonicPc]) + "7", "", "") +
         `<small>→ ${r.scale.names[r.tonicPc]} ${r.scale.label}</small></span>`;
     }
     right += `</div>`;
@@ -715,7 +772,7 @@
     if (minorFamily) {
       const v = pcMod(homePc + 7);
       right += `<div class="kp-homedom">${s.panelHomeDom} ${helpBtn("homedom")}: ` +
-        chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") + `</div>`;
+        chordChip(v, [0,4,7,10], fifthName(homeScale.names[homePc]) + "7", "", "") + `</div>`;
     }
 
     panelEl.innerHTML =
