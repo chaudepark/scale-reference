@@ -102,6 +102,18 @@
   .kp-secdom .sd { display: inline-flex; align-items: center; gap: .35rem; }
   .kp-secdom .sd small { color: var(--muted); font-size: .78em; }
   .kp-homedom { font-size: .86rem; color: var(--muted); margin-top: .7rem; display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+  .kp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; align-items: start; }
+  @media (max-width: 760px) { .kp-cols { grid-template-columns: 1fr; gap: 1.2rem; } }
+  .kp-basis { margin-left: .5rem; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; font-size: .92em; }
+  .ihelp { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--muted); background: none; color: var(--muted); font-size: .62rem; font-weight: 800; font-style: normal; line-height: 1; padding: 0; margin-left: .35rem; cursor: pointer; vertical-align: middle; }
+  .ihelp:hover { border-color: var(--accent); color: var(--accent); }
+  .help-dialog { max-width: 440px; width: calc(100% - 2rem); border: 1px solid var(--card-border); border-radius: 14px; background: var(--card); color: var(--text); padding: 1.3rem 1.4rem; }
+  .help-dialog::backdrop { background: rgba(0,0,0,.55); }
+  .help-body h3 { margin: 0 0 .6rem; font-size: 1.05rem; }
+  .help-body p { margin: 0 0 .7rem; font-size: .9rem; color: #cfd4de; line-height: 1.6; }
+  .help-body p:last-child { margin-bottom: 0; }
+  .help-actions { margin-top: 1.1rem; text-align: right; }
+  .help-close { background: var(--accent); color: #0f1115; border: none; border-radius: 8px; padding: .4rem 1.1rem; font: inherit; font-weight: 700; cursor: pointer; }
 
   /* ---- collapsible full reference ---- */
   .bykey { margin: 2.6rem 0 0; }
@@ -209,6 +221,11 @@
 <footer id="footer"></footer>
 </div>
 
+<dialog id="helpDialog" class="help-dialog">
+  <div class="help-body" id="helpBody"></div>
+  <form method="dialog" class="help-actions"><button class="help-close" id="helpClose">OK</button></form>
+</dialog>
+
 <script>
   /* =====================================================================
      i18n strings
@@ -236,6 +253,9 @@
       hintJump: "Tap a row to jump to that key",
       panelSecDom: "Strong approach — secondary dominant (V7) of each target",
       panelHomeDom: "Strong dominant of this key (harmonic-minor V)",
+      basisMinor: "(based on natural minor)",
+      basisParent: (name) => `(based on parent key ${name})`,
+      close: "Close",
       byKeySummary: "Full reference — every sub note → all its keys",
       keysH2: "By key — keys that put your sub root in the sweet spot",
       keysIntro: "For each sub note (the 8 sweet-spot + solid notes), the keys that contain it as a root — computed from each scale formula (7 keys each). Major / Minor sit on top for early writing; the modes below are for when you modulate. Enharmonics are interchangeable (F#≡G♭ / D#≡E♭ / G#≡A♭).",
@@ -268,6 +288,9 @@
       hintJump: "行をタップでそのキーへ移動",
       panelSecDom: "強い導入 — 各転調先のセカンダリードミナント(V7)",
       panelHomeDom: "このキーの強い属和音（harmonic minor V）",
+      basisMinor: "（natural minor を基準）",
+      basisParent: (name) => `（親キー ${name} を基準）`,
+      close: "閉じる",
       byKeySummary: "フル早見表 — 全サブ音 → 入る調すべて",
       keysH2: "キー別 — サブの根音がスイートスポットに入る調",
       keysIntro: "各サブノート（sweet spot + solid の8音）を根音として使ったとき、それを含む調の早見。各スケールの定義から算出した全7調。制作初期は上の Major / Minor だけ見ればOK、下のモードは転調時の選択肢。エンハーモニックは適宜読み替え（F#≡G♭ / D#≡E♭ / G#≡A♭）。",
@@ -569,63 +592,101 @@
     } catch (e) {}
   }
 
+  // ---- modulation basis (modes -> parent major; harmonic/melodic minor -> natural minor) ----
+  const MODE_PARENT_OFFSET = { dorian: 2, phrygian: 4, lydian: 5, mixolydian: 7, locrian: 11 };
+  function modBasis(tonicPc, scale) {
+    if (scale.key === "major") return { pc: tonicPc, scale: MAJOR, note: null };
+    if (scale.key === "minor") return { pc: tonicPc, scale: MINOR, note: null };
+    if (scale.key === "hminor" || scale.key === "mminor") return { pc: tonicPc, scale: MINOR, note: "minor" };
+    const off = MODE_PARENT_OFFSET[scale.key];
+    if (off != null) return { pc: pcMod(tonicPc - off), scale: MAJOR, note: "parent" };
+    return { pc: tonicPc, scale: MAJOR, note: null };
+  }
+
+  // ---- help (ⓘ) ----
+  const helpBtn = (topic) => `<button type="button" class="ihelp" data-help="${topic}" aria-label="help">i</button>`;
+  const HELP = {
+    en: {
+      zone: `<h3>Sub-bass zones</h3><p>Each note is coloured by how well it works as a <b>sub-bass root</b>:</p><p><b class="z-sweet">Green = sweet spot</b> (E1–G#1, ~41–52Hz) — strong on any system.<br><b class="z-ok">Yellow = solid</b> (D / D# / G# / A) — usable.<br><b class="z-sub">Red = suboptimal</b> — tends to vanish or sound weak.</p><p>So a chord shown in green has a root that gives you a powerful sub.</p>`,
+      bridge: `<h3>Bridge (pivot chord)</h3><p>A <b>pivot chord</b> exists in <b>both</b> the current key and the target key, so it works as a hinge to slip between them smoothly.</p><p>The arrow shows its role in each key. Example <b>B (VI→IV)</b>: the B chord is <b>VI</b> in your current key and <b>IV</b> in the target. Play it, then carry on as if you're in the new key — seamless.</p><p>You don't need the numbers: a pivot is just "a chord that sounds natural in both keys."</p>`,
+      secdom: `<h3>Strong approach — secondary dominant (V7)</h3><p>Every key has one chord that <b>pulls strongly toward it</b>: its <b>V7</b> (dominant 7th).</p><p>Play the target's V7 right before it for a strong, obvious change. Example: to land on <b>F# major</b>, play <b>C#7 → F#</b>.</p><p>Versus a pivot (smooth, unnoticed), this is the <b>bold, dramatic</b> way in. Same destination.</p>`,
+      homedom: `<h3>Strong dominant (harmonic-minor V)</h3><p>In natural minor the V chord is minor and feels weak. Borrowing from <b>harmonic minor</b> makes it a <b>major V7</b>, which resolves much more strongly to the tonic.</p><p>Example in A minor: <b>E7 → Am</b> for a strong cadence.</p>`,
+    },
+    ja: {
+      zone: `<h3>サブ域の色分け</h3><p>各音を「<b>サブベースのルートとしての相性</b>」で色分けしています。</p><p><b class="z-sweet">緑＝スイートスポット</b>（E1–G#1, 約41–52Hz）— どの環境でも強く鳴る。<br><b class="z-ok">黄＝ソリッド</b>（D / D# / G# / A）— 使える。<br><b class="z-sub">赤＝弱い</b> — 消えやすい・弱く聞こえがち。</p><p>つまり緑のコードはルートに太いサブを置けます。</p>`,
+      bridge: `<h3>ブリッジ（ピボットコード）</h3><p><b>ピボットコード</b>は、今のキーと行き先の<b>両方に存在する</b>和音。これを“蝶番”にすると滑らかに転調できます。</p><p>矢印は各キーでの役割。例 <b>B (VI→IV)</b>：Bは今のキーで<b>VI</b>番目、行き先で<b>IV</b>番目の和音。鳴らしてそのまま新キーとして続ければ繋ぎ目が分かりません。</p><p>数字は覚えなくてOK。「両方のキーで自然に鳴る和音だから滑らか」だけ。</p>`,
+      secdom: `<h3>強い導入 — セカンダリードミナント（V7）</h3><p>どのキーにも、そのキーへ<b>強く引っ張る</b>専用の和音＝<b>V7</b>（ドミナントセブンス）があります。</p><p>行き先の直前にその V7 を鳴らすと、はっきり強く転調できます。例：<b>F# major</b> に着地したいなら <b>C#7 → F#</b>。</p><p>ピボット（滑らか・気づかれない）に対し、これは<b>はっきり劇的</b>な入り方。行き先は同じです。</p>`,
+      homedom: `<h3>強い属和音（harmonic minor の V）</h3><p>ナチュラルマイナーのVは“マイナー”で弱め。<b>harmonic minor</b> から借りるとVが<b>メジャーのV7</b>になり、主和音へ強く解決します。</p><p>例（A minor）：<b>E7 → Am</b> で強いケイデンス。</p>`,
+    },
+  };
+  function openHelp(topic) {
+    const body = document.getElementById("helpBody");
+    body.innerHTML = (HELP[CURRENT_LANG] && HELP[CURRENT_LANG][topic]) || "";
+    const d = document.getElementById("helpDialog");
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+  }
+
   // ---- panel render ----
   function renderPanel(homePc, homeScale, lang) {
     const s = STRINGS[lang];
     const set = new Set(homeScale.pat.map(iv => pcMod(homePc + iv)));
     const sweet = SUB.filter(x => x.zone === "sweet" && set.has(x.pc)).map(x => x.n);
     const solid = SUB.filter(x => x.zone === "ok" && set.has(x.pc)).map(x => x.n);
-    let html =
-      `<div class="kp-title">${ROOT_NAMES[homePc]} ${homeScale.label}</div>` +
+
+    const basis = modBasis(homePc, homeScale);
+    let basisNote = "";
+    if (basis.note === "minor") basisNote = s.basisMinor;
+    else if (basis.note === "parent") basisNote = s.basisParent(ROOT_NAMES[basis.pc] + " major");
+    const minorFamily = homeScale.key === "minor" || homeScale.key === "hminor" || homeScale.key === "mminor";
+
+    // ----- left column: sub notes + chords -----
+    let left =
       `<div class="kp-subnotes">${s.panelSubNotes}: ` +
-      `<b class="z-sweet">${sweet.join(" ") || "—"}</b>　·　<b class="z-ok">${solid.join(" ") || "—"}</b></div>`;
-
-    const isMajMin = homeScale.key === "major" || homeScale.key === "minor";
-    if (!isMajMin) {
-      html += `<div class="kp-section">&nbsp;</div><div class="kp-note">${s.panelModeNote}</div>`;
-      panelEl.innerHTML = html; panelEl.hidden = false; return;
-    }
-
-    // chords coloured by sub zone of the root — tap to hear
-    html += `<div class="kp-section">${s.panelChords}</div><div class="kp-chords">`;
+      `<b class="z-sweet">${sweet.join(" ") || "—"}</b>　·　<b class="z-ok">${solid.join(" ") || "—"}</b></div>` +
+      `<div class="kp-section">${s.panelChords} ${helpBtn("zone")}</div><div class="kp-chords">`;
     for (const t of scaleTriads(homePc, homeScale)) {
-      html += chordChip(t.root, TRIAD_IV[t.qual] || [0,4,7], chordLabel(t), roman(t.deg, t.qual), ZONE_CLASS[PC_ZONE[t.root]]);
+      left += chordChip(t.root, TRIAD_IV[t.qual] || [0,4,7], chordLabel(t), roman(t.deg, t.qual), ZONE_CLASS[PC_ZONE[t.root]]);
     }
-    html += `</div><div class="kp-hint">${s.hintPlay}</div>`;
+    left += `</div><div class="kp-hint">${s.hintPlay}</div>`;
 
-    // modulation targets, strongest sub first — tap a row to jump
-    const rel = relatedKeys(homePc, homeScale)
+    // ----- right column: modulation + secondary dominants + home dominant -----
+    const rel = relatedKeys(basis.pc, basis.scale)
       .sort((a, b) => (ZONE_RANK[PC_ZONE[a.tonicPc]] - ZONE_RANK[PC_ZONE[b.tonicPc]]) || (a.homeDeg - b.homeDeg));
-    const par = homeScale === MAJOR ? MINOR : MAJOR;
-    const targets = rel.concat([{ tonicPc: homePc, scale: par, parallel: true }]);
-    html += `<div class="kp-section">${s.panelModulate}</div>` +
+    const targets = rel.slice();
+    if (!basis.note) {  // major/minor selected -> add parallel key
+      targets.push({ tonicPc: basis.pc, scale: basis.scale === MAJOR ? MINOR : MAJOR, parallel: true });
+    }
+    let right = `<div class="kp-section">${s.panelModulate} ${helpBtn("bridge")}` +
+      (basisNote ? `<span class="kp-basis">${basisNote}</span>` : "") + `</div>` +
       `<table class="kp-table"><thead><tr><th>${s.thKey}</th><th>${s.thDeg}</th><th>${s.thSub}</th><th>${s.thBridge}</th></tr></thead><tbody>`;
     for (const r of targets) {
       const z = PC_ZONE[r.tonicPc];
-      const b = bridge(homePc, homeScale, r.tonicPc, r.scale);
+      const b = bridge(basis.pc, basis.scale, r.tonicPc, r.scale);
       const deg = r.parallel ? s.parallelTag : roman(r.homeDeg, r.homeQual);
-      html += `<tr data-root="${r.tonicPc}" data-scale="${r.scale.key}"${r.parallel ? ' class="parallel"' : ''}>` +
+      right += `<tr data-root="${r.tonicPc}" data-scale="${r.scale.key}"${r.parallel ? ' class="parallel"' : ''}>` +
         `<td class="${ZONE_CLASS[z]}">${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</td>` +
         `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s)}</td></tr>`;
     }
-    html += `</tbody></table><div class="kp-hint">${s.hintJump}</div>`;
+    right += `</tbody></table><div class="kp-hint">${s.hintJump}</div>`;
 
-    // secondary dominant (V7) of each target — strong approach, tap to hear
-    html += `<div class="kp-section">${s.panelSecDom}</div><div class="kp-secdom">`;
+    right += `<div class="kp-section">${s.panelSecDom} ${helpBtn("secdom")}</div><div class="kp-secdom">`;
     for (const r of rel) {
       const v = pcMod(r.tonicPc + 7);
-      html += `<span class="sd">` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") +
+      right += `<span class="sd">` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") +
         `<small>→ ${ROOT_NAMES[r.tonicPc]} ${r.scale.label}</small></span>`;
     }
-    html += `</div>`;
+    right += `</div>`;
 
-    // home's strong dominant (harmonic-minor V) for minor keys
-    if (homeScale.key === "minor") {
+    if (minorFamily) {
       const v = pcMod(homePc + 7);
-      html += `<div class="kp-homedom">${s.panelHomeDom}: ` + chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") + `</div>`;
+      right += `<div class="kp-homedom">${s.panelHomeDom} ${helpBtn("homedom")}: ` +
+        chordChip(v, [0,4,7,10], CHORD_NAMES[v] + "7", "", "") + `</div>`;
     }
 
-    panelEl.innerHTML = html; panelEl.hidden = false;
+    panelEl.innerHTML =
+      `<div class="kp-title">${ROOT_NAMES[homePc]} ${homeScale.label}</div>` +
+      `<div class="kp-cols"><div class="kp-left">${left}</div><div class="kp-right">${right}</div></div>`;
+    panelEl.hidden = false;
   }
 
   // ---- URL + persistence (minimise re-selection) ----
@@ -672,6 +733,8 @@
     applyLookup();
   });
   panelEl.addEventListener("click", e => {
+    const help = e.target.closest(".ihelp");
+    if (help) { openHelp(help.dataset.help); return; }
     const chip = e.target.closest(".playable");
     if (chip) {
       playChord(+chip.dataset.root, chip.dataset.iv.split(",").map(Number));
@@ -686,6 +749,9 @@
       if (si >= 0) scaleSel.value = String(si);
       applyLookup();
     }
+  });
+  document.getElementById("helpDialog").addEventListener("click", e => {
+    if (e.target.id === "helpDialog") e.target.close();   // click backdrop to close
   });
 
   // restore selection from URL → localStorage
@@ -714,6 +780,7 @@
     document.getElementById("t-intro").textContent = s.intro;
     document.getElementById("t-byKeySummary").textContent = s.byKeySummary;
     document.getElementById("t-keysIntro").textContent = s.keysIntro;
+    document.getElementById("helpClose").textContent = s.close;
     document.getElementById("t-whyH2").textContent = s.whyH2;
     document.getElementById("legend").innerHTML =
       `<span><i class="chip sweet"></i>${s.legend.sweet}</span>` +
