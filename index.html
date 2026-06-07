@@ -92,6 +92,7 @@
   .kp-table td:first-child { font-weight: 800; }
   .kp-table tr.parallel td { opacity: .8; }
   .kp-table .arrow { color: var(--muted); font-weight: 500; font-size: .85em; }
+  .kp-table .func { display: inline-block; font-size: .72em; font-weight: 700; letter-spacing: .03em; color: var(--accent); background: rgba(110,168,254,.12); border-radius: 5px; padding: .05rem .3rem; margin-left: .15rem; white-space: nowrap; }
   .kp-note { font-size: .85rem; color: var(--muted); }
   .chord.playable { cursor: pointer; user-select: none; transition: transform .06s, border-color .12s; }
   .chord.playable:hover { border-color: var(--accent); }
@@ -550,8 +551,15 @@
     common.sort((a, b) => (pref[a.targetDeg] ?? 5) - (pref[b.targetDeg] ?? 5));
     return common[0];
   }
-  const bridgeText = (b, s) => b
-    ? `${chordLabel(b)} <span class="arrow">(${roman(b.homeDeg, b.qual)}→${roman(b.targetDeg, b.qual)})</span>`
+  // harmonic function by scale degree (T=tonic, S=subdominant, D=dominant)
+  const FUNC = {
+    major: { 0:"T", 1:"S", 2:"T", 3:"S", 4:"D", 5:"T", 6:"D" },
+    minor: { 0:"T", 1:"S", 2:"T", 3:"S", 4:"D", 5:"S", 6:"D" },
+  };
+  const funcOf = (scale, deg) => FUNC[scale.key === "major" ? "major" : "minor"][deg];
+  const bridgeText = (b, s, homeScale, targetScale) => b
+    ? `${chordLabel(b)} <span class="arrow">(${roman(b.homeDeg, b.qual)}→${roman(b.targetDeg, b.qual)})</span>` +
+      ` <span class="func">${funcOf(homeScale, b.homeDeg)}→${funcOf(targetScale, b.targetDeg)}</span>`
     : s.panelBorrow;
 
   // chord intervals (semitones from root) for playback & chips
@@ -609,13 +617,13 @@
   const HELP = {
     en: {
       zone: `<h3>Sub-bass zones</h3><p>Each note is coloured by how well it works as a <b>sub-bass root</b>:</p><p><b class="z-sweet">Green = sweet spot</b> (E1–G#1, ~41–52Hz) — strong on any system.<br><b class="z-ok">Yellow = solid</b> (D / D# / G# / A) — usable.<br><b class="z-sub">Red = suboptimal</b> — tends to vanish or sound weak.</p><p>So a chord shown in green has a root that gives you a powerful sub.</p>`,
-      bridge: `<h3>Bridge (pivot chord)</h3><p>A <b>pivot chord</b> exists in <b>both</b> the current key and the target key, so it works as a hinge to slip between them smoothly.</p><p>The arrow shows its role in each key. Example <b>B (VI→IV)</b>: the B chord is <b>VI</b> in your current key and <b>IV</b> in the target. Play it, then carry on as if you're in the new key — seamless.</p><p>You don't need the numbers: a pivot is just "a chord that sounds natural in both keys."</p>`,
+      bridge: `<h3>Bridge (pivot chord)</h3><p>A <b>pivot chord</b> exists in <b>both</b> keys, so it works as a hinge to slip between them.</p><p>The numbers are its degree in each key; the badge is its harmonic <b>function</b>: <b>T</b> = tonic (stable / home), <b>S</b> = subdominant (departure), <b>D</b> = dominant (tension). A pivot feels smooth when its function makes sense in <b>both</b> keys.</p><p>Example C→G: <b>Em</b> is <b>iii (T)</b> in C and <b>vi (T)</b> in G — tonic in both, so the change is invisible. Then <b>D7</b> (G's dominant) drives the landing.</p>`,
       secdom: `<h3>Strong approach — secondary dominant (V7)</h3><p>Every key has one chord that <b>pulls strongly toward it</b>: its <b>V7</b> (dominant 7th).</p><p>Play the target's V7 right before it for a strong, obvious change. Example: to land on <b>F# major</b>, play <b>C#7 → F#</b>.</p><p>Versus a pivot (smooth, unnoticed), this is the <b>bold, dramatic</b> way in. Same destination.</p>`,
       homedom: `<h3>Strong dominant (harmonic-minor V)</h3><p>In natural minor the V chord is minor and feels weak. Borrowing from <b>harmonic minor</b> makes it a <b>major V7</b>, which resolves much more strongly to the tonic.</p><p>Example in A minor: <b>E7 → Am</b> for a strong cadence.</p>`,
     },
     ja: {
       zone: `<h3>サブ域の色分け</h3><p>各音を「<b>サブベースのルートとしての相性</b>」で色分けしています。</p><p><b class="z-sweet">緑＝スイートスポット</b>（E1–G#1, 約41–52Hz）— どの環境でも強く鳴る。<br><b class="z-ok">黄＝ソリッド</b>（D / D# / G# / A）— 使える。<br><b class="z-sub">赤＝弱い</b> — 消えやすい・弱く聞こえがち。</p><p>つまり緑のコードはルートに太いサブを置けます。</p>`,
-      bridge: `<h3>ブリッジ（ピボットコード）</h3><p><b>ピボットコード</b>は、今のキーと行き先の<b>両方に存在する</b>和音。これを“蝶番”にすると滑らかに転調できます。</p><p>矢印は各キーでの役割。例 <b>B (VI→IV)</b>：Bは今のキーで<b>VI</b>番目、行き先で<b>IV</b>番目の和音。鳴らしてそのまま新キーとして続ければ繋ぎ目が分かりません。</p><p>数字は覚えなくてOK。「両方のキーで自然に鳴る和音だから滑らか」だけ。</p>`,
+      bridge: `<h3>ブリッジ（ピボットコード）</h3><p><b>ピボットコード</b>は今のキーと行き先の<b>両方に存在する</b>和音。これを“蝶番”にして転調します。</p><p>数字は各キーでの度数、バッジは和音<b>機能</b>：<b>T</b>＝トニック（安定・home）／<b>S</b>＝サブドミナント（出発）／<b>D</b>＝ドミナント（緊張）。<b>両方のキーで機能が筋の通る</b>ピボットほど滑らかです。</p><p>例 C→G：<b>Em</b> は Cで <b>IIIm (T)</b>、Gで <b>VIm (T)</b> ＝両方トニックなので気づかれず移れる。続く <b>D7</b>（Gのドミナント）で着地。</p>`,
       secdom: `<h3>強い導入 — セカンダリードミナント（V7）</h3><p>どのキーにも、そのキーへ<b>強く引っ張る</b>専用の和音＝<b>V7</b>（ドミナントセブンス）があります。</p><p>行き先の直前にその V7 を鳴らすと、はっきり強く転調できます。例：<b>F# major</b> に着地したいなら <b>C#7 → F#</b>。</p><p>ピボット（滑らか・気づかれない）に対し、これは<b>はっきり劇的</b>な入り方。行き先は同じです。</p>`,
       homedom: `<h3>強い属和音（harmonic minor の V）</h3><p>ナチュラルマイナーのVは“マイナー”で弱め。<b>harmonic minor</b> から借りるとVが<b>メジャーのV7</b>になり、主和音へ強く解決します。</p><p>例（A minor）：<b>E7 → Am</b> で強いケイデンス。</p>`,
     },
@@ -666,7 +674,7 @@
       const deg = r.parallel ? s.parallelTag : roman(r.homeDeg, r.homeQual);
       right += `<tr data-root="${r.tonicPc}" data-scale="${r.scale.key}"${r.parallel ? ' class="parallel"' : ''}>` +
         `<td class="${ZONE_CLASS[z]}">${r.scale.names[r.tonicPc]} ${r.scale.label}</td>` +
-        `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s)}</td></tr>`;
+        `<td>${deg}</td><td>${ZONE_MARK[z]}</td><td>${bridgeText(b, s, basis.scale, r.scale)}</td></tr>`;
     }
     right += `</tbody></table><div class="kp-hint">${s.hintJump}</div>`;
 
