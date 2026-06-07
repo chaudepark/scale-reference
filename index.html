@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sub Note → Scale → Key</title>
+<title>Best Sub Bass Notes — Cheatsheet</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -12,6 +12,9 @@
     --text: #e6e9ef;
     --muted: #8b93a3;
     --accent: #6ea8fe;
+    --sweet: #43c46a;
+    --ok: #e0a23a;
+    --sub: #e0533a;
     --major: #5db075;
     --minor: #d98a4b;
     --hminor: #b07ad9;
@@ -21,165 +24,223 @@
   body {
     margin: 0;
     padding: 2rem 1.25rem 4rem;
-    background: var(--bg);
+    background: radial-gradient(120% 80% at 70% -10%, #1a1d27 0%, var(--bg) 55%);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
   }
-  header {
-    max-width: 1100px;
-    margin: 0 auto 2rem;
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { margin-bottom: 2rem; }
+  h1 { font-size: 1.7rem; font-weight: 800; margin: 0 0 .4rem; letter-spacing: .01em; }
+  h2 {
+    font-size: 1.1rem; font-weight: 700; margin: 2.6rem 0 1rem;
+    display: flex; align-items: center; gap: .5rem;
   }
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 .35rem;
-    letter-spacing: .01em;
-  }
-  .sub {
-    color: var(--muted);
-    font-size: .9rem;
-    margin: 0;
-  }
-  .grid {
-    max-width: 1100px;
+  h2::before { content: ""; width: 4px; height: 1.05em; background: var(--accent); border-radius: 2px; }
+  .sub { color: var(--muted); font-size: .92rem; margin: 0; max-width: 60ch; }
+
+  /* ---- keyboard ---- */
+  .kbd-zone { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.6rem 1.4rem 1.3rem; }
+  .keyboard {
+    position: relative;
+    display: flex;
+    gap: 6px;
+    height: 220px;
+    max-width: 720px;
     margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.1rem;
   }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: 14px;
-    padding: 1.1rem 1.2rem 1.3rem;
-  }
-  .note {
-    display: inline-flex;
-    align-items: baseline;
-    gap: .5rem;
-    margin: 0 0 1rem;
-  }
-  .note .label {
-    font-size: 1.9rem;
+  .white {
+    position: relative;
+    flex: 1;
+    border-radius: 0 0 8px 8px;
+    background: #20242e;
+    border: 2px solid transparent;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: .55rem;
+    color: #0f1115;
     font-weight: 800;
-    line-height: 1;
-    letter-spacing: .02em;
   }
-  .note .tag {
-    font-size: .72rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .08em;
+  .white .name { font-size: 1.25rem; }
+  .white .hz { font-size: .68rem; font-weight: 700; opacity: .8; margin-bottom: .15rem; }
+  .black {
+    position: absolute;
+    top: 0;
+    width: 9%;
+    height: 58%;
+    transform: translateX(-50%);
+    border-radius: 0 0 6px 6px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: .35rem;
+    font-size: .8rem;
+    font-weight: 800;
+    color: #0f1115;
   }
+  .black .hz { font-size: .58rem; font-weight: 700; opacity: .85; }
+  .sweet  { background: var(--sweet); }
+  .ok     { background: var(--ok); }
+  .sub-z  { background: var(--sub); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 1.1rem; justify-content: center; margin-top: 1.4rem; font-size: .85rem; }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; color: var(--muted); }
+  .chip { width: 13px; height: 13px; border-radius: 4px; }
+
+  /* ---- evidence ---- */
+  .tips { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+  .tip { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.1rem 1.2rem; border-left: 4px solid var(--accent); }
+  .tip h3 { margin: 0 0 .5rem; font-size: .98rem; }
+  .tip p { margin: 0 0 .6rem; font-size: .88rem; color: #cfd4de; }
+  .tip.sweet-b { border-left-color: var(--sweet); }
+  .tip.ok-b { border-left-color: var(--ok); }
+  .tip.sub-b { border-left-color: var(--sub); }
+  .src { font-size: .78rem; }
+  .src a { color: var(--accent); text-decoration: none; }
+  .src a:hover { text-decoration: underline; }
+
+  /* ---- scale->key cards ---- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.1rem; }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.1rem 1.2rem 1.3rem; }
+  .note { display: inline-flex; align-items: baseline; gap: .5rem; margin: 0 0 1rem; }
+  .note .label { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+  .note .tag { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
   .row { margin-bottom: .85rem; }
   .row:last-child { margin-bottom: 0; }
-  .type {
-    display: flex;
-    align-items: center;
-    gap: .45rem;
-    font-size: .78rem;
-    font-weight: 600;
-    color: var(--muted);
-    margin-bottom: .45rem;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-  }
+  .type { display: flex; align-items: center; gap: .45rem; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: .45rem; text-transform: uppercase; letter-spacing: .05em; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .dot.major { background: var(--major); }
-  .dot.minor { background: var(--minor); }
-  .dot.hminor { background: var(--hminor); }
-  .dot.mminor { background: var(--mminor); }
+  .dot.major { background: var(--major); } .dot.minor { background: var(--minor); }
+  .dot.hminor { background: var(--hminor); } .dot.mminor { background: var(--mminor); }
   .keys { display: flex; flex-wrap: wrap; gap: .4rem; }
-  .key {
-    font-size: .85rem;
-    font-weight: 600;
-    padding: .22rem .55rem;
-    border-radius: 7px;
-    background: #20242e;
-    border: 1px solid #2c3240;
-    font-variant-numeric: tabular-nums;
-  }
-  .major .key { border-color: rgba(93,176,117,.35); }
-  .minor .key { border-color: rgba(217,138,75,.35); }
-  .hminor .key { border-color: rgba(176,122,217,.35); }
-  .mminor .key { border-color: rgba(75,176,192,.35); }
-  footer {
-    max-width: 1100px;
-    margin: 2.5rem auto 0;
-    color: var(--muted);
-    font-size: .8rem;
-  }
+  .key { font-size: .85rem; font-weight: 600; padding: .22rem .55rem; border-radius: 7px; background: #20242e; border: 1px solid #2c3240; font-variant-numeric: tabular-nums; }
+
+  footer { margin-top: 3rem; color: var(--muted); font-size: .78rem; border-top: 1px solid var(--card-border); padding-top: 1.2rem; }
+  footer a { color: var(--accent); }
 </style>
 </head>
 <body>
+<div class="wrap">
 <header>
-  <h1>Sub Note → Scale → Key</h1>
-  <p class="sub">楽曲制作用の早見表</p>
+  <h1>Best Sub Bass Notes</h1>
+  <p class="sub">サブベースの音域早見表。各音の数字は1オクターブ目の基音周波数(Hz)。EQで確認して、サブが正しいオクターブで鳴っているかチェック。</p>
 </header>
 
-<main class="grid" id="grid"></main>
+<section class="kbd-zone">
+  <div class="keyboard" id="keyboard"></div>
+  <div class="legend">
+    <span><i class="chip sweet"></i>Sweet spot — サブに最適 (E1–G#1)</span>
+    <span><i class="chip ok"></i>Solid — 使える (D1–D#1 / G#1–A1)</span>
+    <span><i class="chip sub-z"></i>Suboptimal — 弱くなりがち</span>
+  </div>
+</section>
 
-<footer>major · minor · harmonic minor · melodic minor</footer>
+<h2>なぜこの音域なのか（根拠）</h2>
+<div class="tips">
+  <div class="tip sweet-b">
+    <h3>スイートスポットは約 41–52Hz</h3>
+    <p>E1(41.2Hz)〜G#1(51.9Hz)は、ほとんどの再生環境が無理なく再生でき、聴感上もサブとして成立する帯域。EDM/ダンス系のサブは概ね 40–70Hz が定番とされる。</p>
+    <p class="src"><a href="https://soundcy.com/article/what-are-sub-bass-sounds" target="_blank">SoundCy: Understanding Sub Bass</a></p>
+  </div>
+  <div class="tip sub-b">
+    <h3>~33Hz以下は再生が難しい</h3>
+    <p>C1(32.7Hz)以下は大型ウーファーと大出力が必要で、ヘッドホンや小型スピーカー・狭い部屋では正確に出ない。"聞こえる"より"感じる"領域で、30Hzハイパスが定番。</p>
+    <p class="src"><a href="https://audioengine.com/explore/subwoofers-and-why-most-music-doesnt-include-frequencies-below-30hz/" target="_blank">Audioengine: Why most music has nothing below 30Hz</a></p>
+  </div>
+  <div class="tip ok-b">
+    <h3>~58Hz以上はサブ感が薄れる</h3>
+    <p>A#1(58.3Hz)を超えると徐々に"サブ"より"ベース"の質感に。40Hz未満は濁りやすく、小部屋では定在波が溜まりやすい点にも注意。</p>
+    <p class="src"><a href="https://unison.audio/eq-frequency-chart/" target="_blank">Unison: EQ Frequency Chart</a></p>
+  </div>
+  <div class="tip">
+    <h3>耳は低域に鈍い（Fletcher-Munson）</h3>
+    <p>等ラウドネス曲線上、低域は同じ大きさに聴かせるのに多くのエネルギーが必要。音量で印象が変わるので、耳だけでなくEQ/アナライザの数値で判断する。</p>
+    <p class="src"><a href="https://en.wikipedia.org/wiki/Equal-loudness_contour" target="_blank">Wikipedia: Equal-loudness contour</a></p>
+  </div>
+  <div class="tip">
+    <h3>100Hz以下はモノで</h3>
+    <p>ステレオの低域はモノ合算で位相打ち消しを起こしうる。人は約80–100Hz以下を定位できないため、センターに置くのが安定。クラブのPAは低域をモノ化する。</p>
+    <p class="src"><a href="https://streamworksaudio.com/mixing-low-frequencies-why-bass-should-be-in-mono/" target="_blank">Streamworks: Why bass should be mono</a></p>
+  </div>
+  <div class="tip">
+    <h3>倍音/上オクターブをレイヤー</h3>
+    <p>純粋なサイン波は倍音が乏しく小型スピーカーで消える。サチュレーションや1オクターブ上のレイヤーで倍音を足すと、低域が出ない環境でもサブを"感じ"させられる。</p>
+    <p class="src"><a href="https://www.edmprod.com/sub-bass/" target="_blank">EDMProd: Sub-Bass guide</a></p>
+  </div>
+</div>
+
+<h2>キー別 — サブの根音がスイートスポットに入る調</h2>
+<p class="sub" style="margin-bottom:1.2rem">各サブノートを根音(=サブで鳴らす音)として使ったとき、自然に収まる調の早見。</p>
+<div class="grid" id="grid"></div>
+
+<footer>
+  <strong>注:</strong> 周波数は A4=440Hz 平均律の1オクターブ目(C1–B1)。ゾーンは目安で、再生環境・ジャンルにより最適点は前後します。<br>
+  Cheatsheet for music production · データ編集は <code>index.html</code> 内の <code>SUB_NOTES</code> / <code>DATA</code> 配列。
+</footer>
+</div>
 
 <script>
-  const DATA = [
-    { note: "E", scales: {
-      major: ["C","G","D","A","E","F","B"],
-      minor: ["A","E","D","B","F#","C#","G#"],
-      hminor: ["A","D","E"],
-      mminor: ["A","D"],
-    }},
-    { note: "F", scales: {
-      major: ["C","F","E♭","A♭"],
-      minor: ["A","D","C","F","G"],
-      hminor: ["D","A","C"],
-      mminor: ["C"],
-    }},
-    { note: "F#", scales: {
-      major: ["G","D","A","E","B"],
-      minor: ["E","B","F#","C#","G#"],
-      hminor: ["E"],
-      mminor: ["A","D"],
-    }},
-    { note: "G", scales: {
-      major: ["C","F","G","D","E♭","A♭"],
-      minor: ["A","D","E","B","C","F","G"],
-      hminor: ["D","E","C"],
-      mminor: ["D"],
-    }},
-    { note: "G#", scales: {
-      major: ["A","E","B","E♭","A♭"],
-      minor: ["F#","C#","G#","C","F"],
-      hminor: ["A","C"],
-      mminor: ["A"],
-    }},
+  // ---- sub-bass keyboard (octave 1, A4=440 equal temperament) ----
+  const SUB_NOTES = [
+    { n:"C",  acc:false, hz:"32.7", zone:"sub-z" },
+    { n:"C#", acc:true,  hz:"34.6", zone:"sub-z" },
+    { n:"D",  acc:false, hz:"36.7", zone:"ok" },
+    { n:"D#", acc:true,  hz:"38.9", zone:"ok" },
+    { n:"E",  acc:false, hz:"41.2", zone:"sweet" },
+    { n:"F",  acc:false, hz:"43.7", zone:"sweet" },
+    { n:"F#", acc:true,  hz:"46.2", zone:"sweet" },
+    { n:"G",  acc:false, hz:"49.0", zone:"sweet" },
+    { n:"G#", acc:true,  hz:"51.9", zone:"ok" },
+    { n:"A",  acc:false, hz:"55.0", zone:"ok" },
+    { n:"A#", acc:true,  hz:"58.3", zone:"sub-z" },
+    { n:"B",  acc:false, hz:"61.7", zone:"sub-z" },
   ];
 
-  const LABELS = {
-    major: "major",
-    minor: "minor",
-    hminor: "harmonic minor",
-    mminor: "melodic minor",
-  };
+  const keyboard = document.getElementById("keyboard");
+  const whites = SUB_NOTES.filter(x => !x.acc);
+  const totalWhite = whites.length;
+  whites.forEach(w => {
+    const el = document.createElement("div");
+    el.className = "white " + w.zone;
+    el.innerHTML = `<span class="hz">${w.hz}</span><span class="name">${w.n}</span>`;
+    keyboard.appendChild(el);
+  });
+  // place black keys between their left/right white neighbours
+  SUB_NOTES.forEach((note, i) => {
+    if (!note.acc) return;
+    const leftWhite = SUB_NOTES.slice(0, i).filter(x => !x.acc).length; // index of white to the left
+    const pct = (leftWhite / totalWhite) * 100; // boundary between leftWhite-1 and leftWhite
+    const el = document.createElement("div");
+    el.className = "black " + note.zone;
+    el.style.left = pct + "%";
+    el.innerHTML = `<span class="name">${note.n}</span><span class="hz">${note.hz}</span>`;
+    keyboard.appendChild(el);
+  });
+
+  // ---- scale -> key data ----
+  const DATA = [
+    { note:"E",  scales:{ major:["C","G","D","A","E","F","B"], minor:["A","E","D","B","F#","C#","G#"], hminor:["A","D","E"], mminor:["A","D"] }},
+    { note:"F",  scales:{ major:["C","F","E♭","A♭"], minor:["A","D","C","F","G"], hminor:["D","A","C"], mminor:["C"] }},
+    { note:"F#", scales:{ major:["G","D","A","E","B"], minor:["E","B","F#","C#","G#"], hminor:["E"], mminor:["A","D"] }},
+    { note:"G",  scales:{ major:["C","F","G","D","E♭","A♭"], minor:["A","D","E","B","C","F","G"], hminor:["D","E","C"], mminor:["D"] }},
+    { note:"G#", scales:{ major:["A","E","B","E♭","A♭"], minor:["F#","C#","G#","C","F"], hminor:["A","C"], mminor:["A"] }},
+  ];
+  const LABELS = { major:"major", minor:"minor", hminor:"harmonic minor", mminor:"melodic minor" };
 
   const grid = document.getElementById("grid");
   for (const { note, scales } of DATA) {
     const card = document.createElement("section");
     card.className = "card";
-
-    const head = document.createElement("div");
-    head.className = "note";
-    head.innerHTML = `<span class="label">${note}</span><span class="tag">sub note</span>`;
-    card.appendChild(head);
-
+    card.innerHTML = `<div class="note"><span class="label">${note}</span><span class="tag">sub note</span></div>`;
     for (const k of ["major","minor","hminor","mminor"]) {
+      const keys = scales[k].map(x => `<span class="key">${x}</span>`).join("");
       const row = document.createElement("div");
       row.className = "row " + k;
-      const keys = scales[k].map(x => `<span class="key">${x}</span>`).join("");
-      row.innerHTML =
-        `<div class="type"><span class="dot ${k}"></span>${LABELS[k]}</div>` +
-        `<div class="keys">${keys}</div>`;
+      row.innerHTML = `<div class="type"><span class="dot ${k}"></span>${LABELS[k]}</div><div class="keys">${keys}</div>`;
       card.appendChild(row);
     }
     grid.appendChild(card);
