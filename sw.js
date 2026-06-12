@@ -4,7 +4,7 @@
      fall back to cache when offline.
    - Other assets: stale-while-revalidate (instant from cache, refreshed in background).
    Bump CACHE on every deploy that changes precached assets. */
-const CACHE = "subbass-v2";
+const CACHE = "subbass-v3";
 const ASSETS = [
   "./",
   "./index.html",

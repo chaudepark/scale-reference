@@ -196,6 +196,30 @@
   .zone-tag.sweet { background: rgba(67,196,106,.18); color: var(--sweet); }
   .zone-tag.ok { background: rgba(224,162,58,.18); color: var(--ok); }
 
+  /* ---- audio options / kick / slide ---- */
+  .audio-opts { display: flex; flex-wrap: wrap; gap: 1.2rem; justify-content: center; margin-top: .8rem; font-size: .8rem; color: var(--muted); }
+  .audio-opts label { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; }
+  .audio-opts input { accent-color: var(--accent); }
+  .kp-kick { font-size: .85rem; color: var(--muted); margin-top: .45rem; }
+  .kp-kick b { font-weight: 800; }
+  .kp-live { display: block; font-size: .72rem; font-weight: 600; color: var(--muted); margin-top: .15rem; }
+  .kp-slide { font-size: .95rem; font-weight: 700; display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+  .kp-slide .sl-step { font-size: .72rem; font-weight: 700; color: var(--muted); background: #20242e; border-radius: 5px; padding: .05rem .35rem; }
+
+  /* ---- sketch loop bar (shared with Polychord Lab) ---- */
+  .sketch { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--card); border-top: 1px solid var(--card-border); display: flex; align-items: center; gap: .6rem; padding: .55rem .9rem; flex-wrap: wrap; }
+  .sketch .sk-title { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); flex: none; }
+  .sk-slots { display: flex; gap: .4rem; flex-wrap: wrap; flex: 1; min-width: 0; }
+  .sk-slot { display: inline-flex; align-items: center; gap: .3rem; background: #20242e; border: 1px solid #2c3240; border-radius: 8px; padding: .2rem .3rem .2rem .55rem; font-size: .82rem; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .sk-slot:hover { border-color: var(--accent); }
+  .sk-slot.playing { border-color: var(--accent); background: rgba(110,168,254,.15); }
+  .sk-slot .sk-x { background: none; border: none; color: var(--muted); font: inherit; font-size: .8em; cursor: pointer; padding: 0 .15rem; }
+  .sk-slot .sk-x:hover { color: var(--sub); }
+  .sketch input[type=number] { width: 4.2rem; background: #20242e; color: var(--text); border: 1px solid #2c3240; border-radius: 8px; padding: .3rem .4rem; font: inherit; font-size: .82rem; }
+  .sketch .sk-btn { background: #20242e; color: var(--text); border: 1px solid #2c3240; border-radius: 8px; padding: .3rem .6rem; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+  .sketch .sk-btn:hover { border-color: var(--accent); }
+  body.has-sketch { padding-bottom: 7.5rem; }
+
   footer { margin-top: 3rem; color: var(--muted); font-size: .78rem; border-top: 1px solid var(--card-border); padding-top: 1.2rem; }
   footer code { background: #20242e; padding: .05rem .3rem; border-radius: 4px; }
 </style>
@@ -222,6 +246,10 @@
   </div>
   <div class="keyboard" id="keyboard"></div>
   <div class="legend" id="legend"></div>
+  <div class="audio-opts">
+    <label><input type="checkbox" id="optRealOct"><span id="t-realOct"></span></label>
+    <label id="octLayerWrap"><input type="checkbox" id="optOctLayer"><span id="t-octLayer"></span></label>
+  </div>
   <div class="key-panel" id="keyPanel" hidden></div>
 </section>
 
@@ -241,6 +269,15 @@
   <div class="help-body" id="helpBody"></div>
   <form method="dialog" class="help-actions"><button class="help-close" id="helpClose">OK</button></form>
 </dialog>
+
+<div class="sketch" id="sketchBar" hidden>
+  <span class="sk-title" id="t-sketch"></span>
+  <div class="sk-slots" id="skSlots"></div>
+  <input type="number" id="skBpm" min="40" max="220" step="1" aria-label="BPM">
+  <button class="sk-btn" id="skPlay">▶</button>
+  <button class="sk-btn" id="skMidi" draggable="true">⬇ MIDI</button>
+  <button class="sk-btn" id="skClear">✕</button>
+</div>
 
 <script>
   /* =====================================================================
@@ -266,8 +303,15 @@
       panelModeNote: "Chord & modulation view is shown for Major / Minor.",
       thKey: "Key", thDeg: "Deg", thSub: "Sub", thBridge: "Bridge (pivot)",
       parallelTag: "parallel", panelBorrow: "borrow / direct",
-      hintPlay: "♪ Tap any chord to hear it",
+      hintPlay: "♪ Tap a chord to hear it · ⇧-click adds it to the sketch loop",
       hintJump: "Tap a row to jump to that key",
+      realOct: "Play real sub octave (monitors/headphones)",
+      octLayer: "+1 oct layer",
+      panelKick: "Kick tuning (oct1 / oct2)",
+      kick5th: "5th",
+      panelSlide: "808 slides — semitones between sub notes",
+      live: (root, scale) => `Ableton Live 12 → Root: ${root} · Scale: ${scale}`,
+      sketch: "Sketch loop",
       panelSecDom: "Strong approach — secondary dominant (V7) of each target",
       panelHomeDom: "Strong dominant of this key (harmonic-minor V)",
       basisMinor: "(based on natural minor)",
@@ -302,8 +346,15 @@
       panelModeNote: "コード・転調ビューは Major / Minor で表示されます。",
       thKey: "キー", thDeg: "度数", thSub: "サブ", thBridge: "ブリッジ（ピボット）",
       parallelTag: "同主調", panelBorrow: "借用・直接",
-      hintPlay: "♪ コードをタップで試聴",
+      hintPlay: "♪ コードをタップで試聴 · ⇧クリックでスケッチループへ追加",
       hintJump: "行をタップでそのキーへ移動",
+      realOct: "実オクターブで鳴らす（要モニター/ヘッドホン）",
+      octLayer: "＋1オクターブ上レイヤー",
+      panelKick: "キックの基音 (oct1 / oct2)",
+      kick5th: "5度",
+      panelSlide: "808スライド — サブ音間の半音距離",
+      live: (root, scale) => `Ableton Live 12 → Root: ${root}・Scale: ${scale}`,
+      sketch: "スケッチループ",
       panelSecDom: "強い導入 — 各転調先のセカンダリードミナント(V7)",
       panelHomeDom: "このキーの強い属和音（harmonic minor V）",
       basisMinor: "（natural minor を基準）",
@@ -499,6 +550,10 @@
   const MINOR = SCALES.find(s => s.key === "minor");
   const PC_ZONE = {};
   SUB_NOTES.forEach(n => { PC_ZONE[NOTE_PC[n.n]] = n.zone; });   // "sweet" | "ok" | "sub-z"
+  const HZ1 = {};
+  SUB_NOTES.forEach(n => { HZ1[NOTE_PC[n.n]] = parseFloat(n.hz); });
+  const LIVE_SCALE = { major:"Major", minor:"Minor", hminor:"Harmonic Minor", mminor:"Melodic Minor",
+    dorian:"Dorian", phrygian:"Phrygian", lydian:"Lydian", mixolydian:"Mixolydian", locrian:"Locrian" };
   const ZONE_RANK = { sweet: 0, ok: 1, "sub-z": 2 };
   const ZONE_CLASS = { sweet: "z-sweet", ok: "z-ok", "sub-z": "z-sub" };
   const ZONE_MARK = { sweet: "🟢", ok: "🟡", "sub-z": "🔴" };
@@ -639,22 +694,51 @@
     } catch (e) { return null; }
   }
   const midiFreq = m => 440 * Math.pow(2, (m - 69) / 12);
-  function playChord(rootPc, iv) {
+
+  // audition options: real sub octave (octave 1) + optional +1 oct layer
+  let REAL_OCT = load("subbass-realoct") === "1";
+  let OCT_LAYER = load("subbass-octlayer") !== "0";
+  function syncAudioOpts() {
+    const r = document.getElementById("optRealOct"), l = document.getElementById("optOctLayer");
+    r.checked = REAL_OCT; l.checked = OCT_LAYER; l.disabled = !REAL_OCT;
+    document.getElementById("octLayerWrap").style.opacity = REAL_OCT ? "1" : ".45";
+  }
+  document.getElementById("optRealOct").addEventListener("change", e => {
+    REAL_OCT = e.target.checked; store("subbass-realoct", REAL_OCT ? "1" : "0"); syncAudioOpts();
+  });
+  document.getElementById("optOctLayer").addEventListener("change", e => {
+    OCT_LAYER = e.target.checked; store("subbass-octlayer", OCT_LAYER ? "1" : "0");
+  });
+  syncAudioOpts();
+
+  // canonical chord = mid-register triad + sub root at the REAL octave 1 (+ optional oct-up layer).
+  // Stored / exported as real pitches; audition lifts the sub when REAL_OCT is off.
+  function buildChordMids(rootPc, iv) {
+    const base = 48 + rootPc;                  // triad root in C3–B3
+    const mids = iv.map(x => base + x);
+    mids.push(24 + rootPc);                    // sub root at octave 1 (C1=24)
+    if (OCT_LAYER) mids.push(36 + rootPc);     // octave-up layer
+    return mids;
+  }
+  function playMids(mids, dur = 1.4) {
     const ac = audio(); if (!ac) return;
+    // when real-octave audition is off, lift sub notes an octave (laptop speakers)
+    const ms = [...new Set(REAL_OCT ? mids : mids.map(m => m < 36 ? m + 12 : m))];
+    if (!ms.length) return;
     try {
-      const t0 = ac.currentTime, dur = 1.4, peak = 0.16;
+      const t0 = ac.currentTime, peak = 0.16;
       const master = ac.createGain();
       const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
       master.connect(lp); lp.connect(ac.destination);
       master.gain.setValueAtTime(0.0001, t0);
       master.gain.exponentialRampToValueAtTime(peak, t0 + 0.02);
       master.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      const base = 48 + rootPc;                 // root in C3–B3
-      const midis = iv.map(x => base + x);
-      midis.push(base - 12);                     // soft sub-octave root
-      midis.forEach(m => {
-        const o = ac.createOscillator(); o.type = "triangle"; o.frequency.value = midiFreq(m);
-        const g = ac.createGain(); g.gain.value = (m === base - 12) ? 0.45 : 1;
+      const lowest = Math.min(...ms);
+      ms.forEach(m => {
+        const isReal = REAL_OCT && m < 36;     // true sub: sine, full level
+        const o = ac.createOscillator(); o.type = isReal ? "sine" : "triangle"; o.frequency.value = midiFreq(m);
+        const g = ac.createGain();
+        g.gain.value = isReal ? 1.0 : (m === lowest ? 0.45 : (m < 48 ? 0.4 : 1));
         o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
       });
     } catch (e) {}
@@ -681,6 +765,8 @@
       secdom: `<h3>Strong approach — secondary dominant (V7)</h3><p>Every key has one chord that <b>pulls strongly toward it</b>: its <b>V7</b> (dominant 7th).</p><p>Play the target's V7 right before it for a strong, obvious change. Example: to land on <b>F# major</b>, play <b>C#7 → F#</b>.</p><p>Versus a pivot (smooth, unnoticed), this is the <b>bold, dramatic</b> way in. Same destination.</p>`,
       homedom: `<h3>Strong dominant (harmonic-minor V)</h3><p>In natural minor the V chord is minor and feels weak. Borrowing from <b>harmonic minor</b> makes it a <b>major V7</b>, which resolves much more strongly to the tonic.</p><p>Example in A minor: <b>E7 → Am</b> for a strong cadence.</p>`,
       pedal: `<h3>Pedal / drone sub</h3><p>A sub note that is a chord tone of several chords can be <b>held underneath</b> while the chords change above — a pedal (drone) bass, very common in techno / IDM.</p><p>This lists each sweet / solid sub note in the key and the chords you can keep it under. Example (A♭ major): hold <b>E♭</b> and play A♭/E♭ → Cm/E♭ → E♭ without moving the sub.</p>`,
+      kick: `<h3>Kick tuning</h3><p>In club music the kick's fundamental is usually tuned to the key — most often the <b>root</b>, sometimes the <b>5th</b>.</p><p>The two numbers are the fundamental in octave 1 / octave 2. Pick the octave that puts the kick where you want it: share the sub's zone (~40–60Hz) for a fused low end, or sit an octave apart so kick and sub stay separated.</p>`,
+      slide: `<h3>808 slides</h3><p>For glide / portamento basslines: the usable sub notes of this key in pitch order, with the distance between neighbours in semitones.</p><p>Short slides (1–3 semitones) keep the bass punchy; for bigger jumps an octave move usually sounds more stable than a long glide.</p>`,
     },
     ja: {
       zone: `<h3>サブ域の色分け</h3><p>各音を「<b>サブベースのルートとしての相性</b>」で色分けしています。</p><p><b class="z-sweet">緑＝スイートスポット</b>（E1–G#1, 約41–52Hz）— どの環境でも強く鳴る。<br><b class="z-ok">黄＝ソリッド</b>（D / D# / G# / A）— 使える。<br><b class="z-sub">赤＝弱い</b> — 消えやすい・弱く聞こえがち。</p><p>つまり緑のコードはルートに太いサブを置けます。</p>`,
@@ -689,6 +775,8 @@
       secdom: `<h3>強い導入 — セカンダリードミナント（V7）</h3><p>どのキーにも、そのキーへ<b>強く引っ張る</b>専用の和音＝<b>V7</b>（ドミナントセブンス）があります。</p><p>行き先の直前にその V7 を鳴らすと、はっきり強く転調できます。例：<b>F# major</b> に着地したいなら <b>C#7 → F#</b>。</p><p>ピボット（滑らか・気づかれない）に対し、これは<b>はっきり劇的</b>な入り方。行き先は同じです。</p>`,
       homedom: `<h3>強い属和音（harmonic minor の V）</h3><p>ナチュラルマイナーのVは“マイナー”で弱め。<b>harmonic minor</b> から借りるとVが<b>メジャーのV7</b>になり、主和音へ強く解決します。</p><p>例（A minor）：<b>E7 → Am</b> で強いケイデンス。</p>`,
       pedal: `<h3>ペダル（ドローン）サブ</h3><p>複数のコードの構成音になっているサブ音は、上のコードを変えながら<b>下で保持</b>できます＝ペダル(ドローン)ベース。テクノ/IDMで頻出。</p><p>ここではキー内の各スイート/ソリッドのサブ音と、その音を下に保てるコードを一覧。例（A♭ major）：<b>E♭</b> を保持して A♭/E♭ → Cm/E♭ → E♭ とサブを動かさず進める。</p>`,
+      kick: `<h3>キックの基音</h3><p>クラブミュージックではキックの基音をキーに合わせるのが定石。多くは<b>ルート</b>、ときどき<b>5度</b>。</p><p>数値はオクターブ1／2での基音周波数。サブと同じ帯域（約40–60Hz）で溶け合わせるか、1オクターブ離して住み分けるか、置きたい帯域に合わせてオクターブを選びます。</p>`,
+      slide: `<h3>808スライド</h3><p>グライド（ポルタメント）ベース用に、このキーで使えるサブ音を音高順に並べ、隣同士の半音距離を表示。</p><p>1–3半音の短いスライドはアタック感を保ちやすく、大きい跳躍は長いグライドよりオクターブ移動の方が安定します。</p>`,
     },
   };
   function openHelp(topic) {
@@ -714,10 +802,16 @@
     else if (basis.note === "parent") basisNote = s.basisParent(basis.scale.names[basis.pc] + " major");
     const minorFamily = homeScale.key === "minor" || homeScale.key === "hminor" || homeScale.key === "mminor";
 
-    // ----- left column: sub notes + chords -----
+    // ----- left column: sub notes + kick tuning + chords -----
+    const fifthPc = pcMod(homePc + 7);
+    const kpName = pc => pcName[pc] || ROOT_NAMES[pc];
+    const hzPair = pc => `${HZ1[pc].toFixed(1)} / ${(HZ1[pc] * 2).toFixed(1)}Hz`;
     let left =
       `<div class="kp-subnotes">${s.panelSubNotes}: ` +
       `<b class="z-sweet">${sweet.join(" ") || "—"}</b>　·　<b class="z-ok">${solid.join(" ") || "—"}</b></div>` +
+      `<div class="kp-kick">🥁 ${s.panelKick} ${helpBtn("kick")}: ` +
+      `<b class="${ZONE_CLASS[PC_ZONE[homePc]]}">${kpName(homePc)}</b> ${hzPair(homePc)}　·　` +
+      `<b class="${ZONE_CLASS[PC_ZONE[fifthPc]]}">${kpName(fifthPc)}</b> <small>(${s.kick5th})</small> ${hzPair(fifthPc)}</div>` +
       `<div class="kp-section">${s.panelChords} ${helpBtn("voicing")}</div><div class="kp-chords">`;
     const triads = scaleTriads(homePc, homeScale);
     for (const t of triads) left += chordCard(t.deg, t.qual, spelled, scalePcs);
@@ -736,6 +830,16 @@
           `<span class="pedal-chords">${chords}</span></div>`;
       }
       left += `</div>`;
+    }
+
+    // 808 slides: usable sub notes in pitch order with semitone distances
+    const slide = [...pedal].sort((a, b) => a.pc - b.pc);
+    if (slide.length > 1) {
+      left += `<div class="kp-section">${s.panelSlide} ${helpBtn("slide")}</div><div class="kp-slide">` +
+        slide.map((p, i) =>
+          (i ? `<span class="sl-step">+${p.pc - slide[i - 1].pc}</span>` : "") +
+          `<b class="${ZONE_CLASS[p.zone]}">${spelled[p.si]}</b>`).join("") +
+        `</div>`;
     }
 
     // ----- right column: modulation + secondary dominants + home dominant -----
@@ -776,7 +880,8 @@
     }
 
     panelEl.innerHTML =
-      `<div class="kp-title">${homeScale.names[homePc]} ${homeScale.label}</div>` +
+      `<div class="kp-title">${homeScale.names[homePc]} ${homeScale.label}` +
+      `<span class="kp-live">${s.live(homeScale.names[homePc], LIVE_SCALE[homeScale.key])}</span></div>` +
       `<div class="kp-cols"><div class="kp-left">${left}</div><div class="kp-right">${right}</div></div>`;
     panelEl.hidden = false;
   }
@@ -829,7 +934,9 @@
     if (help) { openHelp(help.dataset.help); return; }
     const chip = e.target.closest(".playable");
     if (chip) {
-      playChord(+chip.dataset.root, chip.dataset.iv.split(",").map(Number));
+      const mids = buildChordMids(+chip.dataset.root, chip.dataset.iv.split(",").map(Number));
+      if (e.shiftKey) { sketchAdd(chipLabel(chip), mids); return; }
+      playMids(mids);
       chip.classList.add("playing");
       setTimeout(() => chip.classList.remove("playing"), 140);
       return;
@@ -874,6 +981,9 @@
     document.getElementById("t-keysIntro").textContent = s.keysIntro;
     document.getElementById("helpClose").textContent = s.close;
     document.getElementById("t-whyH2").textContent = s.whyH2;
+    document.getElementById("t-realOct").textContent = s.realOct;
+    document.getElementById("t-octLayer").textContent = s.octLayer;
+    document.getElementById("t-sketch").textContent = s.sketch;
     document.getElementById("legend").innerHTML =
       `<span><i class="chip sweet"></i>${s.legend.sweet}</span>` +
       `<span><i class="chip ok"></i>${s.legend.ok}</span>` +
@@ -888,6 +998,101 @@
       b.classList.toggle("active", b.dataset.lang === lang);
     });
   }
+
+  /* ---- shared sketch loop (localStorage "subbass-sketch", synced with Polychord Lab) ---- */
+  const SK_KEY = "subbass-sketch";
+  function skLoad() {
+    try { const v = JSON.parse(load(SK_KEY) || "null"); if (v && Array.isArray(v.slots)) return v; } catch (e) {}
+    return { v: 1, slots: [], bpm: 124 };
+  }
+  function skSave(sk) { store(SK_KEY, JSON.stringify(sk)); renderSketch(); }
+  function sketchAdd(label, mids) {
+    const sk = skLoad();
+    if (sk.slots.length >= 8) sk.slots.shift();
+    sk.slots.push({ label, mids });
+    skSave(sk);
+  }
+  function chipLabel(chip) {
+    const c = chip.cloneNode(true);
+    c.querySelectorAll(".deg").forEach(x => x.remove());
+    return c.textContent.replace(/\s+/g, " ").trim();
+  }
+  let skTimer = null, skIdx = 0;
+  function skStop() {
+    if (skTimer) clearTimeout(skTimer); skTimer = null;
+    document.getElementById("skPlay").textContent = "▶";
+    document.querySelectorAll(".sk-slot.playing").forEach(el => el.classList.remove("playing"));
+  }
+  function skTick() {
+    const sk = skLoad();
+    if (!sk.slots.length) { skStop(); return; }
+    skIdx %= sk.slots.length;
+    const beat = 60 / (sk.bpm || 124);
+    document.querySelectorAll(".sk-slot").forEach(el => el.classList.toggle("playing", +el.dataset.i === skIdx));
+    playMids(sk.slots[skIdx].mids, beat * 2 * 0.95);   // one chord = 2 beats
+    skIdx++;
+    skTimer = setTimeout(skTick, beat * 2 * 1000);
+  }
+  function renderSketch() {
+    const sk = skLoad(), bar = document.getElementById("sketchBar");
+    bar.hidden = !sk.slots.length;
+    document.body.classList.toggle("has-sketch", !!sk.slots.length);
+    document.getElementById("skBpm").value = sk.bpm || 124;
+    const box = document.getElementById("skSlots"); box.innerHTML = "";
+    sk.slots.forEach((sl, i) => {
+      const c = document.createElement("span"); c.className = "sk-slot"; c.dataset.i = i;
+      const x = document.createElement("button"); x.className = "sk-x"; x.textContent = "×";
+      c.append(sl.label, x);
+      c.addEventListener("click", e => {
+        if (e.target === x) { const s2 = skLoad(); s2.slots.splice(i, 1); skSave(s2); return; }
+        playMids(sl.mids, 1.2);
+      });
+      box.appendChild(c);
+    });
+    if (!sk.slots.length) skStop();
+  }
+  // standard MIDI file (format 0, 480 TPQN): each slot = 2 beats
+  function midiFile(slots, bpm) {
+    const TPQ = 480, dur = TPQ * 2;
+    const vlq = n => { const out = [n & 0x7f]; while (n >>= 7) out.unshift((n & 0x7f) | 0x80); return out; };
+    const track = [];
+    const uspq = Math.round(60000000 / (bpm || 120));
+    track.push(0, 0xFF, 0x51, 0x03, (uspq >> 16) & 255, (uspq >> 8) & 255, uspq & 255);
+    let wrote = false;
+    for (const sl of slots) {
+      const mids = [...new Set(sl.mids || [])].filter(m => m >= 0 && m < 128);
+      if (!mids.length) continue;
+      wrote = true;
+      mids.forEach(m => track.push(0, 0x90, m, 100));
+      mids.forEach((m, i) => track.push(...(i === 0 ? vlq(dur) : [0]), 0x80, m, 0));
+    }
+    if (!wrote) return null;
+    track.push(0, 0xFF, 0x2F, 0x00);
+    const len = track.length;
+    return new Uint8Array([0x4D, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, (TPQ >> 8) & 255, TPQ & 255,
+      0x4D, 0x54, 0x72, 0x6B, (len >>> 24) & 255, (len >> 16) & 255, (len >> 8) & 255, len & 255, ...track]);
+  }
+  function midiB64(u8) { let b = ""; u8.forEach(x => { b += String.fromCharCode(x); }); return btoa(b); }
+  document.getElementById("skPlay").addEventListener("click", () => {
+    if (skTimer) { skStop(); return; }
+    skIdx = 0; document.getElementById("skPlay").textContent = "■"; skTick();
+  });
+  document.getElementById("skBpm").addEventListener("change", e => {
+    const sk = skLoad(); sk.bpm = Math.min(220, Math.max(40, +e.target.value || 124)); skSave(sk);
+  });
+  document.getElementById("skClear").addEventListener("click", () => { skSave({ v: 1, slots: [], bpm: skLoad().bpm }); });
+  document.getElementById("skMidi").addEventListener("click", () => {
+    const sk = skLoad(), u8 = midiFile(sk.slots, sk.bpm); if (!u8) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([u8], { type: "audio/midi" }));
+    a.download = "subbass-sketch.mid"; a.click();
+  });
+  document.getElementById("skMidi").addEventListener("dragstart", e => {
+    const sk = skLoad(), u8 = midiFile(sk.slots, sk.bpm); if (!u8) return;
+    e.dataTransfer.setData("DownloadURL", "audio/midi:subbass-sketch.mid:data:audio/midi;base64," + midiB64(u8));
+  });
+  window.addEventListener("storage", e => { if (e.key === SK_KEY) renderSketch(); });
+  renderSketch();
 
   /* ---- language detection + toggle ---- */
   function store(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
